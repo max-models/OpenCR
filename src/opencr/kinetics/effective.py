@@ -77,6 +77,30 @@ class QuasiStatic:
         return self.coefficients @ n_p
 
 
+def _solve(
+    matrix: sps.csc_matrix, rhs: np.ndarray, names: tuple[str, ...]
+) -> np.ndarray:
+    """``matrix^-1 rhs`` by sparse LU, with a diagnosis when the matrix is singular."""
+    diagonal = matrix.diagonal()
+    lossless = [names[i] for i in np.flatnonzero(diagonal == 0.0)]
+    if lossless:
+        raise SingularSystemError(
+            f"the states {lossless} have no loss process; they cannot be quasi-static. "
+            "Prescribe their densities or add their losses."
+        )
+    try:
+        lu = spla.splu(matrix)
+    except RuntimeError as error:
+        raise SingularSystemError(
+            f"the quasi-static matrix is singular ({error}): a group of states has no path to "
+            "the drivers"
+        ) from error
+    solution = lu.solve(np.asarray(rhs, dtype=float))
+    # one step of iterative refinement
+    residual = rhs - matrix @ solution
+    return solution + lu.solve(residual)
+
+
 def quasi_static(
     network: ReactionNetwork, rates: np.ndarray, conditions: Conditions
 ) -> QuasiStatic:
@@ -120,27 +144,3 @@ def quasi_static(
         np.asarray(effective),
         float(conditions.electron_density),
     )
-
-
-def _solve(
-    matrix: sps.csc_matrix, rhs: np.ndarray, names: tuple[str, ...]
-) -> np.ndarray:
-    """``matrix^-1 rhs`` by sparse LU, with a diagnosis when the matrix is singular."""
-    diagonal = matrix.diagonal()
-    lossless = [names[i] for i in np.flatnonzero(diagonal == 0.0)]
-    if lossless:
-        raise SingularSystemError(
-            f"the states {lossless} have no loss process; they cannot be quasi-static. "
-            "Prescribe their densities or add their losses."
-        )
-    try:
-        lu = spla.splu(matrix)
-    except RuntimeError as error:
-        raise SingularSystemError(
-            f"the quasi-static matrix is singular ({error}): a group of states has no path to "
-            "the drivers"
-        ) from error
-    solution = lu.solve(np.asarray(rhs, dtype=float))
-    # one step of iterative refinement
-    residual = rhs - matrix @ solution
-    return solution + lu.solve(residual)
