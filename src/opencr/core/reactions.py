@@ -54,6 +54,13 @@ REACTION_KINDS = (
 RADIATIVE_KINDS = ("spontaneous_emission", "radiative_recombination")
 
 
+def _elements(states: Sequence[State]) -> dict[str, int]:
+    total: Counter[str] = Counter()
+    for state in states:
+        total.update(state.species.composition)
+    return {k: v for k, v in total.items() if v}
+
+
 @dataclass(frozen=True)
 class Reaction:
     """One reaction.
@@ -170,10 +177,3 @@ class Reaction:
         return Counter(self.reactant_counts) == Counter(
             forward.product_counts
         ) and Counter(self.product_counts) == Counter(forward.reactant_counts)
-
-
-def _elements(states: Sequence[State]) -> dict[str, int]:
-    total: Counter[str] = Counter()
-    for state in states:
-        total.update(state.species.composition)
-    return {k: v for k, v in total.items() if v}

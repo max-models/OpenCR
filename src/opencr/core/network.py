@@ -71,13 +71,6 @@ class ReactionNetwork:
             if problems:
                 raise NetworkError(problems)
 
-    def __repr__(self) -> str:
-        """The name and the sizes."""
-        return (
-            f"ReactionNetwork({self.name!r}, {len(self.states)} states, "
-            f"{len(self.reactions)} reactions)"
-        )
-
     @property
     def state_names(self) -> tuple[str, ...]:
         """The names of the states, in order."""
@@ -119,6 +112,37 @@ class ReactionNetwork:
         """Return the reactions that change the population of ``state``."""
         return tuple(r for r in self.reactions if state in r.net)
 
+    def _kind_problems(self, reaction: Reaction) -> list[str]:
+        problems = []
+        if isinstance(reaction.rate, DetailedBalance):
+            forward = reaction.rate.forward
+            if forward not in self._reaction_index:
+                problems.append(
+                    f"{reaction.name}: forward reaction {forward!r} is missing"
+                )
+            else:
+                other = self.reaction(forward)
+                if not reaction.inverse_of(other):
+                    problems.append(
+                        f"{reaction.name}: is not the inverse of {forward!r}"
+                    )
+                if isinstance(other.rate, DetailedBalance):
+                    problems.append(
+                        f"{reaction.name}: {forward!r} is itself an inverse"
+                    )
+        if (
+            reaction.kind in ("excitation", "ionization")
+            and reaction.energy_change <= 0.0
+        ):
+            problems.append(
+                f"{reaction.name}: an {reaction.kind} must raise the energy"
+            )
+        if reaction.kind in ("deexcitation", "spontaneous_emission") and (
+            reaction.energy_change >= 0.0
+        ):
+            problems.append(f"{reaction.name}: a {reaction.kind} must lower the energy")
+        return problems
+
     def problems(self) -> list[str]:
         """Return every inconsistency found, as sentences; empty if none."""
         problems: list[str] = []
@@ -153,37 +177,6 @@ class ReactionNetwork:
             for s in self.states
             if s.name not in used and len(self.states) > 1
         ]
-        return problems
-
-    def _kind_problems(self, reaction: Reaction) -> list[str]:
-        problems = []
-        if isinstance(reaction.rate, DetailedBalance):
-            forward = reaction.rate.forward
-            if forward not in self._reaction_index:
-                problems.append(
-                    f"{reaction.name}: forward reaction {forward!r} is missing"
-                )
-            else:
-                other = self.reaction(forward)
-                if not reaction.inverse_of(other):
-                    problems.append(
-                        f"{reaction.name}: is not the inverse of {forward!r}"
-                    )
-                if isinstance(other.rate, DetailedBalance):
-                    problems.append(
-                        f"{reaction.name}: {forward!r} is itself an inverse"
-                    )
-        if (
-            reaction.kind in ("excitation", "ionization")
-            and reaction.energy_change <= 0.0
-        ):
-            problems.append(
-                f"{reaction.name}: an {reaction.kind} must raise the energy"
-            )
-        if reaction.kind in ("deexcitation", "spontaneous_emission") and (
-            reaction.energy_change >= 0.0
-        ):
-            problems.append(f"{reaction.name}: a {reaction.kind} must lower the energy")
         return problems
 
     def conservation(self) -> _Conservation:
@@ -273,3 +266,10 @@ class ReactionNetwork:
                 "by_kind": dict(Counter(r.kind for r in self.reactions)),
             },
         }
+
+    def __repr__(self) -> str:
+        """The name and the sizes."""
+        return (
+            f"ReactionNetwork({self.name!r}, {len(self.states)} states, "
+            f"{len(self.reactions)} reactions)"
+        )
