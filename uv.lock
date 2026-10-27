@@ -2909,7 +2909,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "opencr", extras = ["docs", "test"], marker = "extra == 'dev'" },
     { name = "plasma-plots", marker = "extra == 'docs'", git = "https://github.com/max-models/plasma-plots?branch=devel" },
-    { name = "plasmacoll", git = "https://github.com/max-models/plasmacoll?branch=atomic-hydrogen" },
+    { name = "plasmacoll", git = "https://github.com/max-models/plasmacoll?branch=devel" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pyproject-fmt", marker = "extra == 'dev'" },
     { name = "pyright", marker = "extra == 'dev'" },
@@ -3241,7 +3241,7 @@ dependencies = [
 [[package]]
 name = "plasmacoll"
 version = "0.3.0"
-source = { git = "https://github.com/max-models/plasmacoll?branch=atomic-hydrogen#b4f0f7c77dd65df0355e61fb0540be015932472c" }
+source = { git = "https://github.com/max-models/plasmacoll?branch=devel#8bc2754376ffb17e5540391f52715f77590cc5bd" }
 dependencies = [
     { name = "cunumpy" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
