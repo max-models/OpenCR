@@ -89,59 +89,6 @@ def _augmented(system, rows, matrix, values):
     return residual, jacobian
 
 
-@sp.profile("opencr.solve_steady", tags=PROFILE_TAGS)
-def solve_steady(
-    system: PopulationSystem,
-    totals: Mapping[str, float] | None = None,
-    initial: np.ndarray | None = None,
-    mode: str = "quasi-static",
-    rtol: float = 1.0e-9,
-    max_iterations: int = 200,
-) -> tuple[np.ndarray, SolverReport]:
-    """Return the steady densities of the evolving states and the report.
-
-    Args:
-        system: The population equations.
-        totals: The total density of each conserved element (m^-3).
-        initial: A starting point for a nonlinear solve; by default the totals
-            are put in the lowest-energy state of each element, a tenth of it
-            ionized when ``n_e`` is quasi-neutral.
-        mode: The name of the solve for the report.
-        rtol: The tolerance of the relative residual.
-        max_iterations: Newton plus continuation iterations.
-
-    Raises:
-        UnderdeterminedError: A conserved element has no total.
-        SingularSystemError: The linear system is singular.
-        ConvergenceError: A nonlinear solve did not converge.
-    """
-    rows, matrix, values, names = constraint_rows(system, totals)
-    residual, jacobian = _augmented(system, rows, matrix, values)
-    if system.is_linear:
-        n = _linear(system, residual, jacobian)
-        report = SolverReport(mode, "sparse LU", iterations=1)
-    else:
-        start = _initial(system, matrix, values, names) if initial is None else initial
-        n, report = _nonlinear(
-            system, residual, jacobian, rows, matrix, values,
-            np.asarray(start, dtype=float), mode, max_iterations, rtol,
-        )  # fmt: skip
-    n = _clip(system, n, report)
-    report.residual = relative_residual(system, n)
-    report.conservation = {
-        name: float(abs(matrix[k] @ n - values[k]) / max(values[k], 1e-300))
-        for k, name in enumerate(names)
-    }
-    report.minimum = float(n.min() / n.max()) if n.size and n.max() > 0 else 0.0
-    if report.residual > max(rtol, 1e-6):
-        report.converged = False
-        report.messages.append(
-            f"relative residual {report.residual:.2e} above tolerance"
-        )
-        raise ConvergenceError("the steady state did not converge", report)
-    return n, report
-
-
 def _linear(system, residual, jacobian) -> np.ndarray:
     zero = np.zeros(system.size)
     a = jacobian(zero).tocsc()
@@ -240,3 +187,56 @@ def _clip(system, n, report) -> np.ndarray:
         bad = [system.evolving[i] for i in np.flatnonzero(n < 0.0)]
         report.messages.append(f"negative densities: {bad}")
     return n
+
+
+@sp.profile("opencr.solve_steady", tags=PROFILE_TAGS)
+def solve_steady(
+    system: PopulationSystem,
+    totals: Mapping[str, float] | None = None,
+    initial: np.ndarray | None = None,
+    mode: str = "quasi-static",
+    rtol: float = 1.0e-9,
+    max_iterations: int = 200,
+) -> tuple[np.ndarray, SolverReport]:
+    """Return the steady densities of the evolving states and the report.
+
+    Args:
+        system: The population equations.
+        totals: The total density of each conserved element (m^-3).
+        initial: A starting point for a nonlinear solve; by default the totals
+            are put in the lowest-energy state of each element, a tenth of it
+            ionized when ``n_e`` is quasi-neutral.
+        mode: The name of the solve for the report.
+        rtol: The tolerance of the relative residual.
+        max_iterations: Newton plus continuation iterations.
+
+    Raises:
+        UnderdeterminedError: A conserved element has no total.
+        SingularSystemError: The linear system is singular.
+        ConvergenceError: A nonlinear solve did not converge.
+    """
+    rows, matrix, values, names = constraint_rows(system, totals)
+    residual, jacobian = _augmented(system, rows, matrix, values)
+    if system.is_linear:
+        n = _linear(system, residual, jacobian)
+        report = SolverReport(mode, "sparse LU", iterations=1)
+    else:
+        start = _initial(system, matrix, values, names) if initial is None else initial
+        n, report = _nonlinear(
+            system, residual, jacobian, rows, matrix, values,
+            np.asarray(start, dtype=float), mode, max_iterations, rtol,
+        )  # fmt: skip
+    n = _clip(system, n, report)
+    report.residual = relative_residual(system, n)
+    report.conservation = {
+        name: float(abs(matrix[k] @ n - values[k]) / max(values[k], 1e-300))
+        for k, name in enumerate(names)
+    }
+    report.minimum = float(n.min() / n.max()) if n.size and n.max() > 0 else 0.0
+    if report.residual > max(rtol, 1e-6):
+        report.converged = False
+        report.messages.append(
+            f"relative residual {report.residual:.2e} above tolerance"
+        )
+        raise ConvergenceError("the steady state did not converge", report)
+    return n, report
