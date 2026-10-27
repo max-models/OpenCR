@@ -71,9 +71,14 @@ class Species:
             MappingProxyType(dict(sorted(self.composition.items()))),
         )
 
-    def __hash__(self) -> int:
-        """Hash by name, charge and mass (the composition is a mapping)."""
-        return hash((self.name, self.charge, self.mass))
+    def to_dict(self) -> dict[str, Any]:
+        """Return the species as plain data."""
+        return {
+            "name": self.name,
+            "charge": self.charge,
+            "mass": self.mass,
+            "composition": dict(self.composition),
+        }
 
     def __eq__(self, other: object) -> bool:
         """Compare every field."""
@@ -86,14 +91,9 @@ class Species:
             dict(other.composition),
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        """Return the species as plain data."""
-        return {
-            "name": self.name,
-            "charge": self.charge,
-            "mass": self.mass,
-            "composition": dict(self.composition),
-        }
+    def __hash__(self) -> int:
+        """Hash by name, charge and mass (the composition is a mapping)."""
+        return hash((self.name, self.charge, self.mass))
 
 
 #: The electron.
@@ -161,22 +161,6 @@ class State:
             self, "quantum_numbers", MappingProxyType(dict(self.quantum_numbers))
         )
 
-    def __hash__(self) -> int:
-        """Hash by name (names are unique in a network)."""
-        return hash(self.name)
-
-    def __eq__(self, other: object) -> bool:
-        """Compare every field."""
-        if not isinstance(other, State):
-            return NotImplemented
-        return (
-            self.species == other.species
-            and self.label == other.label
-            and self.energy == other.energy
-            and self.weight == other.weight
-            and dict(self.quantum_numbers) == dict(other.quantum_numbers)
-        )
-
     @property
     def name(self) -> str:
         """The state's name, ``"H(n=2)"``, or the species' name when unresolved."""
@@ -196,6 +180,22 @@ class State:
             "weight": self.weight,
             "quantum_numbers": dict(self.quantum_numbers),
         }
+
+    def __eq__(self, other: object) -> bool:
+        """Compare every field."""
+        if not isinstance(other, State):
+            return NotImplemented
+        return (
+            self.species == other.species
+            and self.label == other.label
+            and self.energy == other.energy
+            and self.weight == other.weight
+            and dict(self.quantum_numbers) == dict(other.quantum_numbers)
+        )
+
+    def __hash__(self) -> int:
+        """Hash by name (names are unique in a network)."""
+        return hash(self.name)
 
 
 #: The free electron, with its spin weight 2.
