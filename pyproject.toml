@@ -50,7 +50,7 @@ optional-dependencies.docs = [
 optional-dependencies.jax = [ "jax" ]
 optional-dependencies.ml = [ "scikit-learn" ]
 optional-dependencies.test = [ "pytest", "pytest-cov" ]
-urls.Source = "https://github.com/max-models/opencr"
+urls.Source = "https://github.com/max-models/OpenCR"
 scripts.opencr = "opencr.cli:main"
 
 [tool.setuptools]

@@ -1,10 +1,10 @@
 // @ts-check
 // The shared max-models docs setup (@max-models/starlight-theme): served at
-// https://max-models.github.io/opencr/, with math, the API reference and a link check.
+// https://max-models.github.io/OpenCR/, with math, the API reference and a link check.
 import { defineDocs } from '@max-models/starlight-theme';
 
 export default defineDocs({
-	repo: 'opencr',
+	repo: 'OpenCR',
 	title: 'OpenCR',
 	description: 'Collisional-radiative models of low-temperature plasmas in Python.',
 	pythonPackage: 'opencr',
