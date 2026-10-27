@@ -29,7 +29,10 @@ def _options(args: argparse.Namespace) -> dict:
 @sp.profile("opencr.cli", tags=PROFILE_TAGS)
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line; return the exit status."""
-    parser = argparse.ArgumentParser(prog="opencr", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="opencr",
+        description="List the predefined models and print their manifests.",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="list the predefined models")
     manifest = commands.add_parser("manifest", help="print a model's manifest as JSON")

@@ -80,12 +80,15 @@ def _augmented(system, rows, matrix, values):
             r[rows] = matrix @ n - values
         return r
 
+    keep = np.ones(system.size)
+    keep[rows] = 0.0
+    constraints = np.zeros((system.size, system.size))
+    constraints[rows] = matrix
+    replaced = sps.csr_matrix(constraints)
+
     def jacobian(n: np.ndarray) -> sps.csr_matrix:
-        j = system.jacobian(n).tolil()
-        for k, row in enumerate(rows):
-            j.rows[row] = list(np.flatnonzero(matrix[k]))
-            j.data[row] = list(matrix[k][np.flatnonzero(matrix[k])])
-        return j.tocsr()
+        # the dynamics in the free rows, the constraints in the replaced ones
+        return sps.csr_matrix(sps.diags(keep) @ system.jacobian(n) + replaced)
 
     return residual, jacobian
 
@@ -148,7 +151,12 @@ def _quasi_neutral(system, totals, mode, rtol) -> tuple[np.ndarray, SolverReport
             SolverReport(mode, "quasi-neutral root", converged=False),
         )
     log_ne, info = brentq(
-        excess, low, high, xtol=1e-14, rtol=max(rtol, 4e-16), full_output=True
+        excess,
+        low,
+        high,
+        xtol=1e-14,
+        rtol=np.float64(max(rtol, 4e-16)),
+        full_output=True,
     )
     report = SolverReport(
         mode, "quasi-neutral root of sparse LU solves", iterations=info.iterations
@@ -199,7 +207,7 @@ def _nonlinear(
             break
         a = (sps.diags(free / dt) - jacobian(n)).tocsc()
         try:
-            step = spla.spsolve(a, residual(n))
+            step = np.asarray(spla.spsolve(a, residual(n)), dtype=float)
         except RuntimeError:  # pragma: no cover - a singular continuation step
             step = np.full(system.size, np.nan)
         if not np.all(np.isfinite(step)):

@@ -34,7 +34,7 @@ class SolverReport:
     """The diagnostics of one solve.
 
     Attributes:
-        mode: ``"quasi-static"``, ``"full"`` or ``"time-dependent"``.
+        mode: ``"quasi-static"`` or ``"full"``.
         method: The numerical method, e.g. ``"sparse LU"`` or ``"Newton"``.
         converged: Whether the tolerances were met.
         iterations: Newton iterations or integrator steps.

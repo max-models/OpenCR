@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from scipy.special import gamma
@@ -174,7 +175,7 @@ class TabulatedEEDF(EEDF):
         self.values = eepf / norm
 
     @classmethod
-    def from_boltzmann(cls, solution: object) -> TabulatedEEDF:
+    def from_boltzmann(cls, solution: Any) -> TabulatedEEDF:
         """Return the distribution of a :class:`plasmacoll.BoltzmannSolution`."""
         return cls(np.asarray(solution.energy), np.asarray(solution.eepf))
 

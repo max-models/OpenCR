@@ -10,7 +10,6 @@ conditions), builds the population equations and solves them (see the guide
   steady state;
 * ``mode="full"``: a closed steady state with the element totals of the
   conditions;
-* :meth:`Model.evolve`: the time-dependent populations;
 * :meth:`Model.effective_rates`: the quasi-static reduction to effective rate
   and population coefficients.
 """
@@ -132,12 +131,6 @@ class Model:
         """Return the quasi-static reduction with the prescribed states of ``conditions``."""
         rates = self.evaluator.coefficients(conditions)
         return quasi_static(self.network, rates, conditions)
-
-    def evolve(self, conditions, times, initial, **options):
-        """Return the time-dependent populations (see :func:`opencr.solvers.transient.evolve`)."""
-        from opencr.solvers.transient import evolve
-
-        return evolve(self, conditions, times, initial, **options)
 
     def __repr__(self) -> str:
         """The name and the size."""

@@ -183,7 +183,7 @@ def check_network_data(
     for reaction in network.reactions:
         rate = reaction.rate
         if isinstance(rate, CrossSectionRate):
-            cs = rate.cross_section
+            cs = rate.table
             problems += check_cross_section(
                 cs.energy, cs.sigma, cs.threshold, reaction.name, strict_threshold=False
             )
