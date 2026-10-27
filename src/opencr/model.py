@@ -59,13 +59,6 @@ class Model:
         self.description = description
         self.evaluator = RateEvaluator(network)
 
-    def __repr__(self) -> str:
-        """The name and the size."""
-        return (
-            f"Model({self.name!r}, {len(self.network.states)} states, "
-            f"{len(self.network.reactions)} reactions)"
-        )
-
     @property
     def name(self) -> str:
         """The network's name."""
@@ -145,3 +138,10 @@ class Model:
         from opencr.solvers.transient import evolve
 
         return evolve(self, conditions, times, initial, **options)
+
+    def __repr__(self) -> str:
+        """The name and the size."""
+        return (
+            f"Model({self.name!r}, {len(self.network.states)} states, "
+            f"{len(self.network.reactions)} reactions)"
+        )

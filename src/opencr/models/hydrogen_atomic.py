@@ -55,6 +55,16 @@ ASSUMPTIONS = (
 )
 
 
+class _RadiativeRecombination:
+    """``alpha_rr(n, T)``: a picklable callable for :class:`~opencr.core.rates.Function`."""
+
+    def __init__(self, n: int) -> None:
+        self.n = n
+
+    def __call__(self, temperature):
+        return radiative_recombination(self.n, temperature)
+
+
 def atomic_hydrogen_network(
     n_max: int = 20,
     isotope: str = "H",
@@ -173,13 +183,3 @@ def atomic_hydrogen_network(
         else f"{isotope.lower()}/atomic/basic",
         assumptions=ASSUMPTIONS,
     )
-
-
-class _RadiativeRecombination:
-    """``alpha_rr(n, T)``: a picklable callable for :class:`~opencr.core.rates.Function`."""
-
-    def __init__(self, n: int) -> None:
-        self.n = n
-
-    def __call__(self, temperature):
-        return radiative_recombination(self.n, temperature)
