@@ -4,6 +4,7 @@ Species, states, rate models, reactions, reaction networks and plasma
 conditions, as plain Python objects.
 """
 
+from opencr.core.conditions import Conditions
 from opencr.core.network import NetworkError, ReactionNetwork
 from opencr.core.rates import (
     Arrhenius,
@@ -29,6 +30,7 @@ __all__ = [
     "RADIATIVE_KINDS",
     "REACTION_KINDS",
     "Arrhenius",
+    "Conditions",
     "Constant",
     "CrossSectionRate",
     "DetailedBalance",
