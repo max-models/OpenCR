@@ -172,17 +172,6 @@ class RateEvaluator:
         network: The reaction network.
     """
 
-    def __init__(self, network: ReactionNetwork) -> None:
-        """Prepare every reaction."""
-        self.network = network
-        self._prepared: list[_Prepared] = []
-        index = {r.name: i for i, r in enumerate(network.reactions)}
-        for reaction in network.reactions:
-            self._prepared.append(self._prepare(reaction, index))
-        self._radiative = np.array(
-            [r.kind == "spontaneous_emission" for r in network.reactions], dtype=bool
-        )
-
     def _prepare(self, reaction: Reaction, index: dict[str, int]) -> _Prepared:
         rate = reaction.rate
         if isinstance(rate, CrossSectionRate):
@@ -232,6 +221,17 @@ class RateEvaluator:
             return self._prepare_inverse(reaction, index)
         raise TypeError(
             f"{reaction.name}: unsupported rate model {type(rate).__name__}"
+        )
+
+    def __init__(self, network: ReactionNetwork) -> None:
+        """Prepare every reaction."""
+        self.network = network
+        self._prepared: list[_Prepared] = []
+        index = {r.name: i for i, r in enumerate(network.reactions)}
+        for reaction in network.reactions:
+            self._prepared.append(self._prepare(reaction, index))
+        self._radiative = np.array(
+            [r.kind == "spontaneous_emission" for r in network.reactions], dtype=bool
         )
 
     def _prepare_inverse(self, reaction: Reaction, index: dict[str, int]) -> _Prepared:
@@ -289,6 +289,12 @@ class RateEvaluator:
             log_k = log_k + extra * np.log(thermal_de_broglie_cubed(t))
         return log_k
 
+    def _escape(self, k: np.ndarray, conditions: Conditions) -> np.ndarray:
+        for i in np.flatnonzero(self._radiative):
+            reaction = self.network.reactions[i]
+            k[..., i] *= conditions.escape.get(reaction.name, reaction.escape)
+        return k
+
     @sp.profile("opencr.rate_coefficients", tags=PROFILE_TAGS)
     def coefficients(self, conditions: Conditions) -> np.ndarray:
         """Return ``k_r`` in SI for every reaction at ``conditions``."""
@@ -330,9 +336,3 @@ class RateEvaluator:
             log_k = self._log_k(prepared, t)
             k[:, i] = np.where(log_k < _LOG_TINY, 0.0, np.exp(np.minimum(log_k, 700.0)))
         return self._escape(k, conditions)
-
-    def _escape(self, k: np.ndarray, conditions: Conditions) -> np.ndarray:
-        for i in np.flatnonzero(self._radiative):
-            reaction = self.network.reactions[i]
-            k[..., i] *= conditions.escape.get(reaction.name, reaction.escape)
-        return k
