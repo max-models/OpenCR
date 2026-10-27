@@ -21,6 +21,28 @@ models are optional extensions. Cross sections and rates come from
 
 Documentation: <https://max-models.github.io/opencr/>
 
+## Example
+
+``` python
+import opencr
+
+model = opencr.load_model("hydrogen/atomic/basic")
+conditions = opencr.Conditions(
+    electron_temperature=2.0,  # eV
+    electron_density=1e18,  # m^-3
+    densities={"H(n=1)": 1e19, "H+": 1e18},  # the drivers, m^-3
+)
+result = model.solve_steady_state(conditions)
+result.populations["H(n=3)"]  # m^-3
+result.emission().sel(line="A:3-2")  # H-alpha
+result.reduction.effective_rate("H(n=1)", "H+")  # S_CR, m^3/s
+```
+
+The physics, the closures and the units are in [The CR
+model](https://max-models.github.io/opencr/guides/model/); the
+acceptance criteria of the atomic hydrogen model in
+[Verification](https://max-models.github.io/opencr/guides/verification/).
+
 ## Install
 
 With [uv](https://docs.astral.sh/uv/):

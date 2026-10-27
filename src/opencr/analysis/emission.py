@@ -170,7 +170,7 @@ def spectrum(
     unit = "W m^-3 nm^-1" if quantity == "power" else "photons m^-3 s^-1 nm^-1"
     return xr.DataArray(
         values,
-        coords={"wavelength": grid},
+        coords={"wavelength": ("wavelength", grid, {"units": "nm"})},
         dims="wavelength",
         name=f"spectral_{quantity}",
         attrs={"units": unit},
