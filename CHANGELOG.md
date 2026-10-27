@@ -5,6 +5,13 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The OpenCR package layout: `core`, `data`, `kinetics`, `solvers`, `backends`, `analysis`,
+  `models`, `ml` and `inference`, with the optional extras `cunumpy`, `jax` and `ml`; depends on
+  plasmacoll, SciPy and xarray. The template's greeting, sine-wave example and example
+  tutorial are gone.
+
 ### Fixed
 
 - `setup_project.sh` also renames the docs smoke paths (`api/opencr/...` in `docs.yml`), so the

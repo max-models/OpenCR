@@ -11,26 +11,15 @@ analysis](https://github.com/max-models/opencr/actions/workflows/static_analysis
 [![PyPI](https://img.shields.io/pypi/v/opencr.png)](https://pypi.org/project/opencr/)
 [![Python](https://img.shields.io/pypi/pyversions/opencr.png)](https://pypi.org/project/opencr/)
 
-Template repository for Python projects: a `src/` package with a console
-entry point, `pytest` tests, GitHub Actions for tests, static analysis,
-tutorials, documentation and PyPI publishing, and an
-[Astro](https://astro.build/) +
-[Starlight](https://starlight.astro.build/) documentation site.
+Collisional-radiative (CR) models of low-temperature plasmas in Python:
+explicit states and reactions with traceable data, steady-state and
+time-dependent population kinetics, effective ionization, recombination
+and emission coefficients, and synthetic spectra. Atomic hydrogen first;
+molecular hydrogen, accelerated backends (cunumpy, JAX) and surrogate
+models are optional extensions. Cross sections and rates come from
+[plasmacoll](https://github.com/max-models/plasmacoll).
 
 Documentation: <https://max-models.github.io/opencr/>
-
-## Use the template
-
-Create a repository from this template, then rename the package:
-
-``` bash
-bash setup_project.sh my-app
-rm setup_project.sh
-```
-
-This replaces `opencr` with `my-app` everywhere, moves
-`src/app` to `src/my_app`, and points the entry point, tests and docs at
-it.
 
 ## Install
 
@@ -38,7 +27,7 @@ With [uv](https://docs.astral.sh/uv/):
 
 ``` bash
 make install    # uv sync --extra dev, plus the pre-commit hooks
-uv run opencr
+uv run opencr list
 ```
 
 Or create and activate a Python environment (3.10 or newer):
@@ -55,14 +44,9 @@ Install the code and requirements with pip:
 pip install -e .
 ```
 
-Run the code with:
-
-``` bash
-opencr
-```
-
-The `test`, `docs` and `dev` extras install the test runner, the
-documentation tooling and the linters:
+The optional extras `cunumpy`, `jax` and `ml` add the accelerated
+backends and the surrogate models; the `test`, `docs` and `dev` extras
+install the test runner, the documentation tooling and the linters:
 
 ``` bash
 pip install -e ".[dev]"
