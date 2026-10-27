@@ -1,4 +1,12 @@
-"""Template python package."""
+"""OpenCR: collisional-radiative models of low-temperature plasmas.
+
+OpenCR builds collisional-radiative (CR) models from explicit states and
+reactions with traceable data, and solves their population equations: steady
+states, quasi-static excited states with effective rate coefficients, and time
+evolution. The physics is defined independently of the numerical backend; the
+reference implementation uses NumPy and SciPy, cunumpy and JAX are optional.
+Cross sections and Maxwellian rates come from :mod:`plasmacoll`.
+"""
 
 from importlib.metadata import PackageNotFoundError, version
 
