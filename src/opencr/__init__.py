@@ -4,10 +4,10 @@ from importlib.metadata import PackageNotFoundError, version
 
 import scope_profiler as sp
 
-from app._profiling import PROFILE_TAGS
+from opencr._profiling import PROFILE_TAGS
 
 try:
-    __version__ = version("template-python")
+    __version__ = version("opencr")
 except PackageNotFoundError:  # not installed, e.g. run from a source tree
     __version__ = "0.0.0+unknown"
 

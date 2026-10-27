@@ -1,19 +1,19 @@
 // @ts-check
 // The shared max-models docs setup (@max-models/starlight-theme): served at
-// https://max-models.github.io/template-python/, with math, the API reference and a link check.
+// https://max-models.github.io/opencr/, with math, the API reference and a link check.
 import { defineDocs } from '@max-models/starlight-theme';
 
 export default defineDocs({
-	repo: 'template-python',
-	title: 'template-python',
+	repo: 'opencr',
+	title: 'opencr',
 	description: 'Template repository for Python projects.',
-	pythonPackage: 'app',
+	pythonPackage: 'opencr',
 	nav: [
 		{ label: 'Getting started', link: '/getting-started/installation/' },
 		{ label: 'Tutorials', link: '/tutorials/' },
 		{ label: 'Full examples', link: '/full-examples/' },
 		{ label: 'Development', link: '/development/docs/' },
-		{ label: 'API', link: '/api/app/' },
+		{ label: 'API', link: '/api/opencr/' },
 	],
 	sidebar: [
 		{

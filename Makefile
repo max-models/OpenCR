@@ -41,7 +41,7 @@ docs-notebooks:  ## execute the changed tutorials and convert all of them (FORCE
 docs-examples:  ## run full Python examples and generate pages with their plots
 	$(PYTHON) docs/tools/examples.py
 
-docs-dev:  ## live preview at http://localhost:4321/template-python/
+docs-dev:  ## live preview at http://localhost:4321/opencr/
 	$(NOTEBOOKS) convert
 	$(PYTHON) docs/tools/examples.py
 	cd docs && $(DOCS_ENV) DOCS_VALIDATE_LINKS=false npm run dev
