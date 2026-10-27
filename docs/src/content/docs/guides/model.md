@@ -45,7 +45,7 @@ $T_e$ (or the energy distribution), $n_e$ or quasi-neutrality, $T_i$, $T_\mathrm
 escape factors are always inputs. OpenCR does not solve an energy equation, and it does not
 compute the energy distribution; plasmacoll's Boltzmann solver can (`EEDF.from_boltzmann`).
 
-## Three solves
+## The solves
 
 **Quasi-static (CR) solve** — `Model.solve_steady_state(conditions)`, the default.
 The excited states relax much faster than the drivers change (the usual CR assumption:
@@ -78,13 +78,13 @@ conserved element the system is underdetermined and the solve stops with an erro
 which total is missing. The result is the ionization balance at the given $n_e$ (or
 self-consistently with quasi-neutrality, which makes the system nonlinear).
 
-**Time-dependent** — `Model.evolve(conditions, times, initial)`. Every evolving state
-follows its equation from initial densities, with conditions that may depend on time. The
-system is stiff (rates from $10^{-3}$ to $10^{9}\,\mathrm{s^{-1}}$); OpenCR uses implicit
-integrators (BDF, Radau) with the analytic sparse Jacobian.
+**Time-dependent** (planned, not in this release). Every evolving state will follow its
+equation from initial densities, with conditions that may depend on time. The system is stiff
+(rates from $10^{-3}$ to $10^{9}\,\mathrm{s^{-1}}$), so it needs implicit integrators (BDF,
+Radau); the analytic sparse Jacobian they need is already there (`PopulationSystem.jacobian`).
 
 Nonlinear reactions (two evolving reactants, such as H⁺ + H⁻ mutual neutralization, or
-$n_e$ from quasi-neutrality) are allowed in the closed and time-dependent solves; the
+$n_e$ from quasi-neutrality) are allowed in the closed solve; the
 quasi-static solve needs the excited states to enter linearly and says so otherwise.
 
 ## Normalisation and output

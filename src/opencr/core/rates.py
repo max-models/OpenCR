@@ -89,9 +89,15 @@ class CrossSectionRate(RateModel):
             raise ValueError("a cross-section rate depends on a temperature")
 
     @property
+    def table(self) -> CrossSection:
+        """The cross section (never ``None`` after construction)."""
+        assert self.cross_section is not None
+        return self.cross_section
+
+    @property
     def threshold(self) -> float:
         """The threshold of the cross section in eV (in its own frame)."""
-        return float(self.cross_section.threshold)
+        return float(self.table.threshold)
 
     def to_dict(self) -> dict[str, Any]:
         """Return the table, threshold and masses."""
@@ -100,10 +106,10 @@ class CrossSectionRate(RateModel):
         return {
             "kind": self.kind,
             "depends_on": self.depends_on,
-            "energy": np.asarray(xp.to_numpy(self.cross_section.energy)).tolist(),
-            "sigma": np.asarray(xp.to_numpy(self.cross_section.sigma)).tolist(),
+            "energy": np.asarray(xp.to_numpy(self.table.energy)).tolist(),
+            "sigma": np.asarray(xp.to_numpy(self.table.sigma)).tolist(),
             "threshold": self.threshold,
-            "label": self.cross_section.label,
+            "label": self.table.label,
             "mass": self.mass,
             "incident_mass": self.incident_mass,
         }
@@ -238,6 +244,7 @@ class Function(RateModel):
 
     def tabulate(self) -> Tabulated:
         """Return the function as a :class:`Tabulated` model on :attr:`file_temperatures`."""
+        assert self.function is not None
         t = np.asarray(self.file_temperatures, dtype=float)
         k = np.asarray(self.function(t), dtype=float)
         return Tabulated(

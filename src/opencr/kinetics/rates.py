@@ -90,7 +90,7 @@ class MaxwellianIntegral:
     @classmethod
     def from_rate(cls, rate: CrossSectionRate) -> MaxwellianIntegral:
         """Prepare the integral of a cross-section rate model."""
-        cs = rate.cross_section
+        cs = rate.table
         scale = 1.0 if rate.incident_mass is None else rate.incident_mass / rate.mass
         energy = np.asarray(xp.to_numpy(cs.energy), dtype=float) / scale
         threshold = cs.threshold / scale
@@ -176,7 +176,7 @@ class RateEvaluator:
         rate = reaction.rate
         if isinstance(rate, CrossSectionRate):
             integral = MaxwellianIntegral.from_rate(rate)
-            electron = rate.cross_section if rate.depends_on == "electron" else None
+            electron = rate.table if rate.depends_on == "electron" else None
             return _Prepared(
                 rate.depends_on, integral.log_scaled, integral.threshold, electron
             )
@@ -210,6 +210,7 @@ class RateEvaluator:
             return _Prepared(rate.depends_on, constant, 0.0)
         if isinstance(rate, Function):
             function, threshold = rate.function, rate.threshold
+            assert function is not None
 
             def evaluated(t: np.ndarray) -> np.ndarray:
                 k = np.asarray(function(t), dtype=float)
@@ -235,6 +236,7 @@ class RateEvaluator:
         )
 
     def _prepare_inverse(self, reaction: Reaction, index: dict[str, int]) -> _Prepared:
+        assert isinstance(reaction.rate, DetailedBalance)
         forward_index = index[reaction.rate.forward]
         forward = self.network.reactions[forward_index]
         prepared = self._prepare(forward, index)

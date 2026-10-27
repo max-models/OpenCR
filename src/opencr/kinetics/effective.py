@@ -142,5 +142,5 @@ def quasi_static(
         excited,
         coefficients,
         np.asarray(effective),
-        float(conditions.electron_density),
+        float(conditions.electron_density or 0.0),
     )

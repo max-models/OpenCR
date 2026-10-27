@@ -124,7 +124,7 @@ class PopulationSystem:
     def electron_density(self, n: np.ndarray) -> float:
         """Return ``n_e`` for the evolving densities ``n``."""
         if not self.conditions.quasi_neutral:
-            return float(self.conditions.electron_density)
+            return float(self.conditions.electron_density or 0.0)
         return float(
             self._prescribed_charge + self.charges @ np.asarray(n, dtype=float)
         )
@@ -182,7 +182,7 @@ class PopulationSystem:
             (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
             shape=(len(self._slots), self.size),
         )
-        return (self.stoichiometry @ derivative).tocsr()
+        return sps.csr_matrix(self.stoichiometry @ derivative)
 
     def linear_parts(self) -> tuple[sps.csr_matrix, np.ndarray]:
         """Return ``M`` and ``b`` of ``R = M n + b`` for a linear system."""
