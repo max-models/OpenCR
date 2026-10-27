@@ -28,10 +28,11 @@ jobs:
       smoke-paths: |
         getting-started/installation/index.html
         tutorials/index.html
-        tutorials/example-tutorial/index.html
+        guides/model/index.html
+        tutorials/01-atomic-hydrogen/index.html
         full-examples/index.html
-        full-examples/sine-wave/index.html
+        full-examples/effective-coefficients/index.html
         api/opencr/index.html
-        api/opencr/main/index.html
-        tutorials/example-tutorial/example_tutorial.ipynb
-        full-examples/sine-wave/plot-1.png
+        api/opencr/model/index.html
+        tutorials/01-atomic-hydrogen/01_atomic_hydrogen.ipynb
+        full-examples/effective-coefficients/plot-1.png

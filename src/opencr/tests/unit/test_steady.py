@@ -77,7 +77,10 @@ def test_quasi_neutral_closed_balance_is_solved_by_continuation() -> None:
     system = PopulationSystem(network, rates(network), conditions, network.state_names)
     assert not system.is_linear
     n, report = solve_steady(system, conditions.totals, mode="full")
-    assert report.converged and "Newton" in report.method
+    assert report.converged and "quasi-neutral" in report.method
+    # the continuation from a starting point finds the same state
+    again, other = solve_steady(system, conditions.totals, initial=n * 1.5, mode="full")
+    assert "Newton" in other.method and again == pytest.approx(n, rel=1e-6)
     assert n[2] / n[0] == pytest.approx(200.0, rel=1e-6)
     assert system.electron_density(n) == pytest.approx(n[2])
     assert n.sum() == pytest.approx(1e20, rel=1e-9)
@@ -156,7 +159,7 @@ def test_failures() -> None:
         network.state_names,
     )
     with pytest.raises(ConvergenceError) as error:
-        solve_steady(quasi, {"H": 1e20}, max_iterations=1)
+        solve_steady(quasi, {"H": 1e20}, initial=np.full(3, 1e19), max_iterations=1)
     assert not error.value.report.converged
 
 
@@ -185,3 +188,22 @@ def test_report_summary_lists_problems() -> None:
         and "slow" in text
         and "conservation" in text
     )
+
+
+def test_a_plasma_without_ionization_has_no_quasi_neutral_state() -> None:
+    network = ReactionNetwork(
+        [G, ION],
+        [
+            Reaction(
+                "rr", (E, ION), (G,), "radiative_recombination", Constant(value=1e-19)
+            )
+        ],
+    )
+    system = PopulationSystem(
+        network,
+        rates(network),
+        Conditions(1.0, None, totals={"H": 1e19}),
+        network.state_names,
+    )
+    with pytest.raises(ConvergenceError, match="recombines completely"):
+        solve_steady(system, {"H": 1e19})

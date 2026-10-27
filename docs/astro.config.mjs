@@ -5,11 +5,12 @@ import { defineDocs } from '@max-models/starlight-theme';
 
 export default defineDocs({
 	repo: 'opencr',
-	title: 'opencr',
-	description: 'Template repository for Python projects.',
+	title: 'OpenCR',
+	description: 'Collisional-radiative models of low-temperature plasmas in Python.',
 	pythonPackage: 'opencr',
 	nav: [
 		{ label: 'Getting started', link: '/getting-started/installation/' },
+		{ label: 'Guides', link: '/guides/model/' },
 		{ label: 'Tutorials', link: '/tutorials/' },
 		{ label: 'Full examples', link: '/full-examples/' },
 		{ label: 'Development', link: '/development/docs/' },
@@ -21,6 +22,16 @@ export default defineDocs({
 			items: [
 				{ label: 'Installation', slug: 'getting-started/installation' },
 				{ label: 'Quickstart', slug: 'getting-started/quickstart' },
+			],
+		},
+		{
+			label: 'Guides',
+			items: [
+				{ label: 'The CR model', slug: 'guides/model' },
+				{ label: 'Atomic hydrogen', slug: 'guides/atomic-hydrogen' },
+				{ label: 'Data and provenance', slug: 'guides/data' },
+				{ label: 'Solvers and troubleshooting', slug: 'guides/solvers' },
+				{ label: 'Verification', slug: 'guides/verification' },
 			],
 		},
 		{

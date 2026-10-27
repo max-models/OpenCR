@@ -24,6 +24,17 @@ from opencr.model import Model
 __all__ = ["scan"]
 
 
+#: The units of the condition fields a scan can run over.
+_UNITS = {
+    "electron_temperature": "eV",
+    "electron_density": "m^-3",
+    "ion_temperature": "eV",
+    "gas_temperature": "eV",
+    "density": "m^-3",
+    "total": "m^-3",
+}
+
+
 def _apply(conditions: Conditions, field: str, value: float) -> Conditions:
     if field.startswith("density:"):
         return conditions.replace(densities={**conditions.densities, field[8:]: value})
@@ -89,7 +100,10 @@ def scan(
                 pec = result.photon_emissivity_coefficients()
                 data.setdefault("pec", np.zeros((*shape, *pec.shape)))
                 data["pec"][index] = pec.values
-    coords: dict[str, Any] = {n: v for n, v in zip(names, values, strict=True)}
+    coords: dict[str, Any] = {
+        n: (n, v, {"units": _UNITS.get(n.split(":")[0], "")})
+        for n, v in zip(names, values, strict=True)
+    }
     coords["state"] = states
     variables: dict[str, Any] = {
         "population": ((*names, "state"), populations, {"units": "m^-3"})

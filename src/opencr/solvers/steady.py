@@ -23,6 +23,7 @@ the positivity of the densities, and returns a
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 
 import numpy as np
@@ -109,6 +110,50 @@ def _linear(system, residual, jacobian) -> np.ndarray:
         ) from error
     n = lu.solve(b)
     return n + lu.solve(b - a @ n)
+
+
+def _quasi_neutral(system, totals, mode, rtol) -> tuple[np.ndarray, SolverReport]:
+    """Solve a system that is linear for given ``n_e`` with quasi-neutrality as a 1D root.
+
+    ``g(n_e) = sum z n(n_e) - n_e``, with ``n(n_e)`` from a linear solve, is
+    positive for a tiny ``n_e`` and negative above the largest possible charge;
+    Brent's method finds the root in ``log n_e``.
+    """
+    from scipy.optimize import brentq
+
+    def solve(ne: float) -> np.ndarray:
+        fixed = PopulationSystem(
+            system.network,
+            system.rates,
+            system.conditions.replace(electron_density=ne),
+            system.evolving,
+        )
+        rows, matrix, values, _ = constraint_rows(fixed, totals)
+        residual, jacobian = _augmented(fixed, rows, matrix, values)
+        return _linear(fixed, residual, jacobian)
+
+    def excess(log_ne: float) -> float:
+        ne = math.exp(log_ne)
+        return math.log(max(system.electron_density(solve(ne)), 1e-300)) - log_ne
+
+    scale = sum((totals or {}).values()) + abs(system._prescribed_charge) or 1.0
+    low, high = math.log(1e-30 * scale), math.log(10.0 * scale)
+    count = 0
+    while excess(high) > 0.0 and count < 20:  # more charge than expected: widen
+        high += math.log(100.0)
+        count += 1
+    if excess(low) < 0.0:
+        raise ConvergenceError(
+            "no quasi-neutral steady state: the plasma recombines completely",
+            SolverReport(mode, "quasi-neutral root", converged=False),
+        )
+    log_ne, info = brentq(
+        excess, low, high, xtol=1e-14, rtol=max(rtol, 4e-16), full_output=True
+    )
+    report = SolverReport(
+        mode, "quasi-neutral root of sparse LU solves", iterations=info.iterations
+    )
+    return solve(math.exp(log_ne)), report
 
 
 def _initial(system, matrix, values, names) -> np.ndarray:
@@ -220,6 +265,8 @@ def solve_steady(
     if system.is_linear:
         n = _linear(system, residual, jacobian)
         report = SolverReport(mode, "sparse LU", iterations=1)
+    elif system.max_order <= 1 and initial is None:
+        n, report = _quasi_neutral(system, totals, mode, rtol)
     else:
         start = _initial(system, matrix, values, names) if initial is None else initial
         n, report = _nonlinear(
