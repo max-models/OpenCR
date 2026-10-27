@@ -14,7 +14,7 @@ print(model)  # Model('hydrogen/atomic/basic', 21 states, 630 reactions)
 
 A solve takes the conditions: the electron temperature in eV, the electron density in m⁻³ and
 the densities of the *drivers*, the states that are inputs rather than unknowns (for atomic
-hydrogen the ground state and the proton, see [The CR model](/opencr/guides/model/)):
+hydrogen the ground state and the proton, see [The CR model](/OpenCR/guides/model/)):
 
 ```python
 conditions = opencr.Conditions(

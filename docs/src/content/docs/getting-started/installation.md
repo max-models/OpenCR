@@ -12,7 +12,7 @@ pip install opencr
 or from a checkout, with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/max-models/opencr
+git clone https://github.com/max-models/OpenCR
 cd opencr
 make install    # uv sync --extra dev, plus the pre-commit hooks
 ```
@@ -38,4 +38,4 @@ pytest --pyargs opencr
 
 The comparison with ADAS runs only when `OPENCR_ADAS_DIR` points to a folder with your own
 downloads of OPEN-ADAS `scd12_h.dat` and `acd12_h.dat` (their terms do not allow OpenCR to
-ship them), see [Verification](/opencr/guides/verification/).
+ship them), see [Verification](/OpenCR/guides/verification/).

@@ -3,10 +3,10 @@
 
 <!-- README.md is generated from README.qmd: edit the .qmd and run `make readme`. -->
 
-[![Tests](https://github.com/max-models/opencr/actions/workflows/test_pytest.yml/badge.svg)](https://github.com/max-models/opencr/actions/workflows/test_pytest.yml)
+[![Tests](https://github.com/max-models/OpenCR/actions/workflows/test_pytest.yml/badge.svg)](https://github.com/max-models/OpenCR/actions/workflows/test_pytest.yml)
 [![Static
-analysis](https://github.com/max-models/opencr/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/max-models/opencr/actions/workflows/static_analysis.yml)
-[![Docs](https://github.com/max-models/opencr/actions/workflows/docs.yml/badge.svg)](https://max-models.github.io/opencr/)
+analysis](https://github.com/max-models/OpenCR/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/max-models/OpenCR/actions/workflows/static_analysis.yml)
+[![Docs](https://github.com/max-models/OpenCR/actions/workflows/docs.yml/badge.svg)](https://max-models.github.io/OpenCR/)
 [![codecov](https://codecov.io/gh/max-models/opencr/branch/main/graph/badge.svg)](https://codecov.io/gh/max-models/opencr)
 [![PyPI](https://img.shields.io/pypi/v/opencr.png)](https://pypi.org/project/opencr/)
 [![Python](https://img.shields.io/pypi/pyversions/opencr.png)](https://pypi.org/project/opencr/)
@@ -19,7 +19,7 @@ molecular hydrogen, accelerated backends (cunumpy, JAX) and surrogate
 models are optional extensions. Cross sections and rates come from
 [plasmacoll](https://github.com/max-models/plasmacoll).
 
-Documentation: <https://max-models.github.io/opencr/>
+Documentation: <https://max-models.github.io/OpenCR/>
 
 ## Example
 
@@ -39,9 +39,9 @@ result.reduction.effective_rate("H(n=1)", "H+")  # S_CR, m^3/s
 ```
 
 The physics, the closures and the units are in [The CR
-model](https://max-models.github.io/opencr/guides/model/); the
+model](https://max-models.github.io/OpenCR/guides/model/); the
 acceptance criteria of the atomic hydrogen model in
-[Verification](https://max-models.github.io/opencr/guides/verification/).
+[Verification](https://max-models.github.io/OpenCR/guides/verification/).
 
 ## Install
 
@@ -102,7 +102,7 @@ Node 22 or newer.
 make docs-install     # npm packages and the Python docs extra
 make docs-notebooks   # execute tutorials/*.ipynb and convert them to pages
 make docs-examples    # run examples/*.py and publish their plots
-make docs-dev         # live preview at http://localhost:4321/opencr/
+make docs-dev         # live preview at http://localhost:4321/OpenCR/
 make docs-build       # the static site in docs/dist
 ```
 
@@ -123,4 +123,4 @@ its release date), and add the release notes to `CHANGELOG.md`. The push
 to `main` creates a GitHub release with a `vX.Y.Z` tag and publishes the
 package to PyPI with trusted publishing (OIDC). The one-time PyPI and
 GitHub configuration is described in the [publishing
-tutorial](https://max-models.github.io/opencr/development/publishing/).
+tutorial](https://max-models.github.io/OpenCR/development/publishing/).

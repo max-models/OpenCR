@@ -7,7 +7,7 @@ description: Publish the package to PyPI and the documentation to GitHub Pages.
 
 The `Docs` workflow builds the site on every push and pull request to `main` and `devel`. It
 executes the tutorials, generates the API reference and uploads the site. Pushes to `devel`
-also deploy it to GitHub Pages at https://max-models.github.io/opencr/.
+also deploy it to GitHub Pages at https://max-models.github.io/OpenCR/.
 
 Enable GitHub Pages once in the repository settings, with "GitHub Actions" as the source.
 
