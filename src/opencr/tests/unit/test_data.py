@@ -37,7 +37,7 @@ from opencr.data.hydrogen import (
     radiative_recombination,
     scaled_exp1,
 )
-from opencr.data.importers import lxcat_reactions, read_rate_table
+from opencr.data.importers import lxcat_reactions, read_adf11, read_rate_table
 from opencr.data.native import network_from_dict, network_to_dict, rate_from_dict
 from opencr.data.provenance import Provenance, Reference
 
@@ -334,3 +334,29 @@ def test_lazy_data_exports() -> None:
     assert opencr.data.Reference is Reference
     with pytest.raises(AttributeError):
         opencr.data.nothing  # noqa: B018
+
+
+ADF11 = """\
+    1    3    2    1    1     /HYDROGEN           /TEST
+--------------------------------------------------------------------------------
+   8.00000   9.00000  10.00000
+   0.00000   1.00000
+---------------------/ IPRT= 1  / IGRD= 1  /--------/ Z1= 1   / DATE= 01/01/26
+ -10.00000 -10.00000 -10.00000
+  -9.00000  -9.00000  -8.00000
+C-----------------------------------------------------------------------
+"""
+
+
+def test_read_adf11(tmp_path) -> None:
+    path = tmp_path / "test.dat"
+    path.write_text(ADF11)
+    table = read_adf11(path)
+    assert table.density == pytest.approx([1e14, 1e15, 1e16])
+    assert table.temperature == pytest.approx([1.0, 10.0])
+    assert table.coefficient[1, 2] == pytest.approx(1e-14)
+    assert table(10.0, 1e14) == pytest.approx(1e-15)
+    assert table(np.sqrt(10.0), 1e14) == pytest.approx(np.sqrt(1e-16 * 1e-15))
+    assert "TEST" in table.header
+    with pytest.raises(DataError):
+        read_adf11(path, block=3)
