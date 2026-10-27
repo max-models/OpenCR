@@ -20,11 +20,12 @@ except PackageNotFoundError:  # not installed, e.g. run from a source tree
     __version__ = "0.0.0+unknown"
 
 from opencr.analysis.results import Result
+from opencr.analysis.scan import scan
 from opencr.core.conditions import Conditions
 from opencr.model import Model
 from opencr.models import available_models, load_model
 
-__all__ = ["Conditions", "Model", "Result", "available_models", "load_model"]
+__all__ = ["Conditions", "Model", "Result", "available_models", "load_model", "scan"]
 
 # The decorated functions pick the tag up, so registering after the imports is in time.
 sp.register_opt_in_tag(*PROFILE_TAGS)
