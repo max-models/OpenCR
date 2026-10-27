@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from plasmacoll.atomic_hydrogen import excitation_fit, ionization_fit
+from plasmacoll.atomic_hydrogen import JOHNSON_MAX_LEVEL, excitation_fit, ionization_fit
 
 from opencr.core.network import ReactionNetwork
 from opencr.core.rates import Constant, CrossSectionRate, DetailedBalance, Function
@@ -76,15 +76,19 @@ def atomic_hydrogen_network(
     """Return the network of ``hydrogen/atomic/basic``.
 
     Args:
-        n_max: The highest principal quantum number.
+        n_max: The highest principal quantum number, at most 24 (the range of
+            Johnson's excitation formula).
         isotope: ``"H"`` or ``"D"`` (the same data; the species are renamed).
         deexcitation: Include electron-impact de-excitation.
         three_body_recombination: Include three-body recombination.
         radiative_recombination_: Include radiative recombination.
         max_energy: The last tabulated cross-section energy in eV.
     """
-    if n_max < 2:
-        raise ValueError("n_max must be >= 2")
+    if not 2 <= n_max <= JOHNSON_MAX_LEVEL:
+        raise ValueError(
+            f"n_max must be in [2, {JOHNSON_MAX_LEVEL}]: Johnson's excitation formula turns "
+            "negative for n -> n + 1 above n = 24"
+        )
     levels, ion = hydrogen_levels(n_max, isotope)
     e = ELECTRON_STATE
     reactions: list[Reaction] = []

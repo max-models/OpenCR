@@ -118,3 +118,8 @@ def test_result_reduction(model) -> None:
     assert pops[0] == pytest.approx(result.population("H(n=2)"), rel=1e-10)
     start = model.solve_steady_state(conditions, initial={"H(n=2)": 1.0})
     assert start.population("H(n=2)") == pytest.approx(result.population("H(n=2)"))
+
+
+def test_n_max_is_limited_to_johnsons_range() -> None:
+    with pytest.raises(ValueError, match="24"):
+        atomic_hydrogen_network(25)

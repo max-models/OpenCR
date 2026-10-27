@@ -6,6 +6,10 @@
   with the user and OpenCR never bundles them.
 * :func:`read_rate_table`: a two-column text file of temperature (eV) and rate
   coefficient (SI), as a :class:`~opencr.core.rates.Tabulated` rate model.
+* :func:`read_adf11`: an ADAS adf11 file of effective (collisional-radiative)
+  coefficients, such as OPEN-ADAS ``scd12_h.dat`` and ``acd12_h.dat``, for
+  comparisons. OPEN-ADAS data are for personal use and must not be
+  redistributed: OpenCR reads the user's own downloads and never ships them.
 
 Every importer checks the data (:mod:`opencr.data.checks`) and attaches a
 provenance.
@@ -14,6 +18,7 @@ provenance.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -26,7 +31,7 @@ from opencr.core.species import ELECTRON_STATE, State
 from opencr.data.checks import check_cross_section, check_rate_table, raise_problems
 from opencr.data.provenance import Provenance, Reference
 
-__all__ = ["LXCAT_KINDS", "lxcat_reactions", "read_rate_table"]
+__all__ = ["LXCAT_KINDS", "Adf11", "lxcat_reactions", "read_adf11", "read_rate_table"]
 
 #: The OpenCR reaction kind of each LXCat block kind that changes a state.
 LXCAT_KINDS = {
@@ -137,3 +142,60 @@ def read_rate_table(
         threshold=threshold,
     )
     return rate, provenance
+
+
+@dataclass(frozen=True)
+class Adf11:
+    """Effective coefficients of one charge state from an ADAS adf11 file.
+
+    Attributes:
+        density: The electron densities in m^-3.
+        temperature: The electron temperatures in eV.
+        coefficient: The coefficients in m^3/s, shape ``(temperature, density)``.
+        header: The first line of the file.
+    """
+
+    density: np.ndarray
+    temperature: np.ndarray
+    coefficient: np.ndarray
+    header: str
+
+    def __call__(self, temperature: float, density: float) -> float:
+        """Return the coefficient interpolated bilinearly in log-log (m^3/s)."""
+        from scipy.interpolate import RegularGridInterpolator
+
+        interpolate = RegularGridInterpolator(
+            (np.log(self.temperature), np.log(self.density)), np.log(self.coefficient)
+        )
+        return float(np.exp(interpolate([[np.log(temperature), np.log(density)]])[0]))
+
+
+def read_adf11(path: str | Path, block: int = 0) -> Adf11:
+    """Read one block (charge state) of an unresolved ADAS adf11 file.
+
+    The file gives ``log10`` densities in cm^-3, ``log10`` temperatures in eV and
+    ``log10`` coefficients in cm^3/s; they are returned in SI.
+    """
+    lines = Path(path).read_text().splitlines()
+    sizes = lines[0].split()
+    n_density, n_temperature = int(sizes[1]), int(sizes[2])
+    numbers: list[float] = []
+    index = 2
+    while len(numbers) < n_density + n_temperature:
+        numbers += [float(v) for v in lines[index].split()]
+        index += 1
+    starts = [i for i, line in enumerate(lines) if "Z1=" in line]
+    if block >= len(starts):
+        raise_problems([f"{path}: no block {block}"])
+    values: list[float] = []
+    index = starts[block] + 1
+    while len(values) < n_density * n_temperature:
+        values += [float(v) for v in lines[index].split()]
+        index += 1
+    table = np.asarray(values).reshape(n_temperature, n_density)
+    return Adf11(
+        density=10.0 ** np.asarray(numbers[:n_density]) * 1.0e6,
+        temperature=10.0 ** np.asarray(numbers[n_density:]),
+        coefficient=10.0**table * 1.0e-6,
+        header=lines[0].strip(),
+    )
