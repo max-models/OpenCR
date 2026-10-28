@@ -53,6 +53,9 @@ optional-dependencies.test = [ "pytest", "pytest-cov" ]
 urls.Source = "https://github.com/max-models/OpenCR"
 scripts.opencr = "opencr.cli:main"
 
+[project.entry-points."scope_profiler.opt_in_tags"]
+opencr = "opencr"
+
 [tool.setuptools]
 package-data."*" = [ "py.typed" ]
 packages.find.where = [ "src" ]
