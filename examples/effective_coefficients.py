@@ -1,6 +1,7 @@
-"""Effective ionization and recombination coefficients of atomic hydrogen.
+"""Effective coefficients.
 
-The collisional-radiative coefficients S_CR and alpha_CR of the
+The effective ionization and recombination coefficients of atomic hydrogen:
+the collisional-radiative coefficients S_CR and alpha_CR of the
 ``hydrogen/atomic/basic`` model against the electron temperature at three
 densities, next to the ionization rate of the ground state alone. These are
 the coefficients a fluid or global model takes from OpenCR.
