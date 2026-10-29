@@ -11,12 +11,14 @@ conditions), builds the population equations and solves them (see the guide
 * ``mode="full"``: a closed steady state with the element totals of the
   conditions;
 * :meth:`Model.effective_rates`: the quasi-static reduction to effective rate
-  and population coefficients.
+  and population coefficients;
+* :meth:`Model.solve_transient`: the populations against time from initial
+  densities, with constant or time-dependent conditions.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
@@ -27,6 +29,7 @@ from opencr.kinetics.effective import QuasiStatic, quasi_static
 from opencr.kinetics.rates import RateEvaluator
 from opencr.kinetics.system import PopulationSystem
 from opencr.solvers.steady import solve_steady
+from opencr.solvers.transient import solve_transient
 
 __all__ = ["MODES", "Model"]
 
@@ -92,6 +95,56 @@ class Model:
         ]
         return PopulationSystem(self.network, rates, conditions, evolving)
 
+    def _solve_once(self, conditions, mode, start, rtol):
+        from opencr.analysis.results import Result
+
+        rates = self.evaluator.coefficients(conditions)
+        system = self.system(conditions, rates)
+        n, report = solve_steady(system, conditions.totals, start, mode, rtol)
+        return Result(self, conditions, rates, system, n, report)
+
+    def _solve_trapped(self, conditions, mode, start, rtol):
+        """Iterate the solve and the escape factors to self-consistency."""
+        from opencr.kinetics.radiation import escape_factors
+        from opencr.solvers.diagnostics import ConvergenceError
+
+        trapping = conditions.trapping
+        assert trapping is not None
+        given = dict(conditions.escape)
+        current: dict[str, float] = {}
+        previous = float("inf")
+        damping = 1.0
+        for iteration in range(1, trapping.max_iterations + 1):
+            point = conditions.replace(escape={**current, **given})
+            result = self._solve_once(point, mode, start, rtol)
+            computed = escape_factors(
+                self.network, result.populations, trapping, point.gas_temperature
+            )
+            change = max(
+                (abs(g - current.get(name, 1.0)) for name, g in computed.items()),
+                default=0.0,
+            )
+            result.report.messages.append(
+                f"escape factors: iteration {iteration}, largest change {change:.1e}"
+            )
+            if change <= trapping.tolerance:
+                return result
+            if iteration == trapping.max_iterations:
+                result.report.converged = False
+                raise ConvergenceError(
+                    "the escape factors did not converge; give a larger tolerance or "
+                    "more iterations in RadiationTrapping",
+                    result.report,
+                )
+            if change > previous:
+                damping = 0.5  # the fixed point oscillates: relax it
+            previous = change
+            current = {
+                name: current.get(name, 1.0) + damping * (g - current.get(name, 1.0))
+                for name, g in computed.items()
+            }
+        raise AssertionError("unreachable")  # pragma: no cover
+
     def solve_steady_state(
         self,
         conditions: Conditions,
@@ -108,8 +161,6 @@ class Model:
             initial: Starting densities by state name for a nonlinear solve.
             rtol: The tolerance of the relative residual.
         """
-        from opencr.analysis.results import Result
-
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
         if mode == "quasi-static":
@@ -119,13 +170,83 @@ class Model:
                     f"a quasi-static solve of {self.name} needs the densities of the drivers "
                     f"{missing} in Conditions.densities (or use mode='full' with totals)"
                 )
-        rates = self.evaluator.coefficients(conditions)
-        system = self.system(conditions, rates)
         start = None
         if initial is not None:
-            start = np.array([initial.get(n, 0.0) for n in system.evolving])
-        n, report = solve_steady(system, conditions.totals, start, mode, rtol)
-        return Result(self, conditions, rates, system, n, report)
+            start = np.array(
+                [initial.get(n, 0.0) for n in self.network.state_names
+                 if n not in conditions.densities]
+            )  # fmt: skip
+        if conditions.trapping is None:
+            return self._solve_once(conditions, mode, start, rtol)
+        return self._solve_trapped(conditions, mode, start, rtol)
+
+    def solve_transient(
+        self,
+        conditions: Conditions | Callable[[float], Conditions],
+        initial: dict[str, float],
+        times: np.ndarray,
+        method: str = "BDF",
+        rtol: float = 1.0e-6,
+        atol: float | None = None,
+    ):
+        """Return the populations against time as a :class:`~opencr.analysis.transient.TransientResult`.
+
+        The states with a density in the conditions stay prescribed (constant,
+        or following ``conditions(t)``); the others evolve from ``initial``.
+
+        Args:
+            conditions: The conditions, or a function of the time in s
+                returning them (same prescribed states at every time).
+            initial: The densities at ``times[0]`` by state name; an evolving
+                state not listed starts empty.
+            times: The output times in s, increasing.
+            method: ``"BDF"`` (default), ``"Radau"`` or ``"LSODA"``.
+            rtol: The relative tolerance.
+            atol: The absolute tolerance in m^-3 (default ``1e-12`` of the
+                largest initial density).
+        """
+        from opencr.analysis.transient import TransientResult
+
+        times = np.asarray(times, dtype=float)
+        conditions_at: Callable[[float], Conditions]
+        system_at: Callable[[float], PopulationSystem]
+        varying: Callable[[float], PopulationSystem] | None = None
+        if callable(conditions):
+            conditions_at = conditions
+            first = conditions_at(float(times[0]))
+            cache: dict[float, PopulationSystem] = {}
+
+            def cached(t: float) -> PopulationSystem:
+                if t not in cache:
+                    cache.clear()
+                    point = conditions_at(t)
+                    if set(point.densities) != set(first.densities):
+                        raise ValueError(
+                            "the prescribed states must be the same at every time"
+                        )
+                    cache[t] = self.system(point)
+                return cache[t]
+
+            system_at = varying = cached
+        else:
+            fixed, fixed_system = conditions, self.system(conditions)
+            conditions_at = lambda _: fixed  # noqa: E731
+            system_at = lambda _: fixed_system  # noqa: E731
+        system = system_at(float(times[0]))
+        unknown = set(initial) - set(self.network.state_names)
+        if unknown:
+            raise KeyError(f"unknown states in initial: {sorted(unknown)}")
+        start = np.array([initial.get(n, 0.0) for n in system.evolving])
+        densities, report = solve_transient(
+            system,
+            start,
+            times,
+            method,
+            rtol,
+            atol,
+            varying,
+        )
+        return TransientResult(self, conditions_at, system_at, times, densities, report)
 
     def effective_rates(self, conditions: Conditions) -> QuasiStatic:
         """Return the quasi-static reduction with the prescribed states of ``conditions``."""

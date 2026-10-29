@@ -24,6 +24,18 @@ Rates are evaluated exactly for Maxwellian electrons: plasmacoll's cross section
 between their table points, so the Maxwellian average is a sum of closed-form integrals. Any
 other energy distribution (`Conditions.from_eedf`) is integrated on its own energy grid.
 
+## Time dependence
+
+`Model.solve_transient` integrates the population equations with `scipy.integrate.solve_ivp`
+and the sparse analytic Jacobian: `method="BDF"` (default), `"Radau"` or `"LSODA"`; explicit
+methods are refused because the problem is stiff. `rtol` (default $10^{-6}$) and `atol`
+(default $10^{-12}$ of the largest initial density) are the integrator's tolerances. The
+output times set the resolution of the result, not the steps. With `conditions` a function of
+time, the rate coefficients are re-evaluated whenever the integrator asks for a new time, which
+costs one rate evaluation per step; the prescribed states must be the same at every time. A
+transient that should end in a steady state can be checked against `solve_steady_state`, and
+`history.at(-1).report.residual` says how far it still is from one.
+
 ## The report
 
 Every result has `result.report` (`SolverReport`): the method, iterations, the **relative
@@ -41,3 +53,5 @@ round-off negatives set to zero. `report.summary()` prints it.
 | `SingularSystemError: ... no loss process` | a state can only be filled | prescribe it, or add its losses |
 | `SingularSystemError: ... singular` | a group of states has no path out | check the network for missing reactions |
 | `ConvergenceError` | a nonlinear solve did not reach the tolerance | start from `initial=`, raise `rtol`, or check that a positive steady state exists (a source with no loss diverges) |
+| `ConvergenceError: ... escape factors` | the radiation-trapping iteration did not settle | raise `tolerance` or `max_iterations` in `RadiationTrapping` |
+| `RuntimeError: the transient solve failed` | the integrator stopped (its message is in the report) | loosen or tighten the tolerances, shorten the time span, try `"Radau"` |

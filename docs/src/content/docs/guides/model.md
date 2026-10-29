@@ -78,10 +78,15 @@ conserved element the system is underdetermined and the solve stops with an erro
 which total is missing. The result is the ionization balance at the given $n_e$ (or
 self-consistently with quasi-neutrality, which makes the system nonlinear).
 
-**Time-dependent** (planned, not in this release). Every evolving state will follow its
-equation from initial densities, with conditions that may depend on time. The system is stiff
-(rates from $10^{-3}$ to $10^{9}\,\mathrm{s^{-1}}$), so it needs implicit integrators (BDF,
-Radau); the analytic sparse Jacobian they need is already there (`PopulationSystem.jacobian`).
+**Time-dependent** — `Model.solve_transient(conditions, initial, times)`. Every evolving
+state follows its equation from initial densities; the prescribed states stay prescribed
+(constant, or following `conditions(t)` when a function of time is given). The system is stiff
+(rates from $10^{-3}$ to $10^{9}\,\mathrm{s^{-1}}$), so the integrators are implicit (BDF by
+default, or Radau) with the analytic sparse Jacobian. The report gives the drift of every element
+total the evolving states conserve; $n_e$ is given or quasi-neutral at every moment, as in the
+steady solves. Any output time can be read like a steady state (`history.at(index)`): fluxes,
+dominant processes and emission at that moment, and the residual that says how far from steady
+state the populations are.
 
 Nonlinear reactions (two evolving reactants, such as H⁺ + H⁻ mutual neutralization, or
 $n_e$ from quasi-neutrality) are allowed in the closed solve; the
@@ -98,12 +103,39 @@ closed steady state the fractions $n_i/N_e$.
 A model is zero-dimensional. Transport enters only as explicit reactions: a loss
 `wall_loss` with a given rate (for example $1/\tau$ with a confinement time), or a
 `pumping` source. Nothing is added behind the user's back. Radiation is optically thin
-unless escape factors are set per line (`Conditions.escape`, see Radiation trapping).
+unless escape factors are set (below).
 
 The atomic hydrogen model resolves the principal quantum number only (the $l$ sub-states
 statistically populated, which needs fast $l$-mixing), truncates at a highest level
 $n_\mathrm{max}$ without continuum lowering, and omits heavy-particle collisions with the
 excited states; its manifest lists every assumption.
+
+## Radiation trapping
+
+An optically thick line is re-absorbed before it leaves the plasma, so only a fraction $g$ of
+its spontaneous emission escapes: the model uses $g A_{ul}$ in place of $A_{ul}$ (and the
+emissivities follow). OpenCR applies escape factors in two explicit ways, and never otherwise:
+
+- `Conditions.escape`: a factor per line, given by the user (for example from a radiation
+  transport calculation);
+- `Conditions.trapping = RadiationTrapping(length, model)`: the factors are computed from the
+  line-centre optical depth of each Doppler-broadened line over the absorption length $L$,
+
+  $$
+  \tau_0 = \frac{\lambda_0^3}{8\pi^{3/2}}\,\frac{g_u}{g_l}\,\frac{A_{ul}\, n_l}{v_D}\, L,
+  \qquad v_D = \sqrt{2kT_\mathrm{gas}/m},
+  $$
+
+  with the approximation `model`: `"mewe"` (default), $g = (2 - e^{-\tau_0/1000})/(1 + \tau_0)$
+  (Mewe 1967), or Holstein's asymptotic forms for a slab or a cylinder
+  (`"holstein-slab"`, `"holstein-cylinder"`). The factors depend on the lower populations,
+  which depend on the factors, so the solve iterates to self-consistency; the result's
+  `conditions.escape` holds the final factors and its report the iterations. Factors given
+  in `Conditions.escape` override the computed ones line by line.
+
+$L$ is the distance the photons travel to the wall (a slab's half-thickness, a cylinder's
+radius), a parameter of this zero-dimensional approximation and not something OpenCR can
+know. The formulas are in `opencr.kinetics.radiation`.
 
 ## Units
 
