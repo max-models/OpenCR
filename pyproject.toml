@@ -96,5 +96,5 @@ report.show_missing = true
 # one entry per max-models package in [project], spelled exactly like this in every repo:
 cunumpy = { git = "https://github.com/max-models/cunumpy", branch = "devel" }
 plasma-plots = { git = "https://github.com/max-models/plasma-plots", branch = "devel" }
-plasmacoll = { git = "https://github.com/max-models/plasmacoll", branch = "h2-highn" }
+plasmacoll = { git = "https://github.com/max-models/plasmacoll", branch = "devel" }
 scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }
