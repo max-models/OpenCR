@@ -2889,6 +2889,8 @@ docs = [
     { name = "nbclient" },
     { name = "nbformat" },
     { name = "plasma-plots" },
+    { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scikit-learn", version = "1.9.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 jax = [
     { name = "jax", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2931,6 +2933,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "ruff", marker = "extra == 'dev'" },
+    { name = "scikit-learn", marker = "extra == 'docs'" },
     { name = "scikit-learn", marker = "extra == 'ml'" },
     { name = "scikit-learn", marker = "extra == 'test'" },
     { name = "scipy", specifier = ">=1.10" },
