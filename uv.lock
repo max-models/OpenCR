@@ -2859,6 +2859,9 @@ dev = [
     { name = "griffe" },
     { name = "ipykernel", version = "7.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipykernel", version = "7.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "jax", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "jax", version = "0.10.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "jax", version = "0.12.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "jupyterlab" },
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2871,11 +2874,16 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scikit-learn", version = "1.9.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 docs = [
     { name = "griffe" },
     { name = "ipykernel", version = "7.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipykernel", version = "7.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "jax", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "jax", version = "0.10.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "jax", version = "0.12.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "nbclient" },
@@ -2892,8 +2900,13 @@ ml = [
     { name = "scikit-learn", version = "1.9.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 test = [
+    { name = "jax", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "jax", version = "0.10.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "jax", version = "0.12.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scikit-learn", version = "1.9.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 
 [package.metadata]
@@ -2901,7 +2914,9 @@ requires-dist = [
     { name = "cunumpy", marker = "extra == 'cunumpy'", git = "https://github.com/max-models/cunumpy?branch=devel" },
     { name = "griffe", marker = "extra == 'docs'" },
     { name = "ipykernel", marker = "extra == 'docs'" },
+    { name = "jax", marker = "extra == 'docs'" },
     { name = "jax", marker = "extra == 'jax'" },
+    { name = "jax", marker = "extra == 'test'" },
     { name = "jupyterlab", marker = "extra == 'dev'" },
     { name = "matplotlib", marker = "extra == 'docs'", specifier = ">=3.10.9" },
     { name = "nbclient", marker = "extra == 'docs'", specifier = ">=0.11" },
@@ -2909,7 +2924,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "opencr", extras = ["docs", "test"], marker = "extra == 'dev'" },
     { name = "plasma-plots", marker = "extra == 'docs'", git = "https://github.com/max-models/plasma-plots?branch=devel" },
-    { name = "plasmacoll", git = "https://github.com/max-models/plasmacoll?branch=devel" },
+    { name = "plasmacoll", git = "https://github.com/max-models/plasmacoll?branch=h2-highn" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pyproject-fmt", marker = "extra == 'dev'" },
     { name = "pyright", marker = "extra == 'dev'" },
@@ -2917,6 +2932,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scikit-learn", marker = "extra == 'ml'" },
+    { name = "scikit-learn", marker = "extra == 'test'" },
     { name = "scipy", specifier = ">=1.10" },
     { name = "scope-profiler", git = "https://github.com/max-models/scope-profiler?branch=devel" },
     { name = "xarray" },
@@ -3240,8 +3256,8 @@ dependencies = [
 
 [[package]]
 name = "plasmacoll"
-version = "0.3.0"
-source = { git = "https://github.com/max-models/plasmacoll?branch=devel#8bc2754376ffb17e5540391f52715f77590cc5bd" }
+version = "0.4.0"
+source = { git = "https://github.com/max-models/plasmacoll?branch=h2-highn#ae6322d59d81b1bcb6aa37d8137dcffef3ed103e" }
 dependencies = [
     { name = "cunumpy" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
