@@ -122,7 +122,7 @@ def generate_dataset(
             "opencr_version": _opencr_version(),
             "sampling": "log-uniform Latin hypercube",
             "seed": seed,
-            "mode": mode,
+            "solve": mode,
             "conditions": json.dumps(conditions.to_dict(), default=str),
             "fractions": list(fractions),
             "solve_time": solve_time,
