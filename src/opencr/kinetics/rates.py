@@ -33,6 +33,15 @@ for a non-Maxwellian EEDF). ``dE`` and the weights come from the states.
 **Escape factors** multiply the spontaneous emission rates (radiation
 trapping): the conditions' value for the reaction if given, else the
 reaction's own.
+
+**Arrays.** Every evaluator is written against cunumpy's ``xp`` (NumPy or
+CuPy for the whole process, see :mod:`opencr.backends`):
+:meth:`RateEvaluator.coefficients_batched` evaluates all reactions at many
+electron temperatures at once there, :meth:`RateEvaluator.coefficients` one
+set of conditions, as floats on the host. A :class:`~opencr.core.rates.Function`
+rate runs on the host (its temperatures are copied there and the result
+back); a non-Maxwellian EEDF is integrated on the host by plasmacoll and is
+not batched.
 """
 
 from __future__ import annotations
@@ -40,6 +49,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import cunumpy as xp
 import numpy as np
@@ -47,7 +57,7 @@ import scope_profiler as sp
 from plasmacoll import CrossSection, eedf_rate_coefficient
 
 from opencr._profiling import PROFILE_TAGS
-from opencr.constants import ELEMENTARY_CHARGE, thermal_de_broglie_cubed
+from opencr.constants import ELECTRON_MASS, ELEMENTARY_CHARGE, PLANCK
 from opencr.core.conditions import Conditions
 from opencr.core.network import ReactionNetwork
 from opencr.core.rates import (
@@ -65,6 +75,16 @@ __all__ = ["MaxwellianIntegral", "RateEvaluator", "inverse_cross_section"]
 
 #: log of the smallest positive rate kept; below it a rate is zero.
 _LOG_TINY = math.log(np.finfo(float).tiny)
+#: ``h^2 / (2 pi m_e e)`` in m^2 eV: ``lambda^3 = (this / T)^(3/2)``.
+_DE_BROGLIE = PLANCK**2 / (2.0 * math.pi * ELECTRON_MASS * ELEMENTARY_CHARGE)
+
+
+def _host(array: Any) -> np.ndarray:
+    """Return ``array`` on the host as a NumPy array (the execution boundary)."""
+    try:
+        return np.asarray(array, dtype=float)
+    except TypeError:  # pragma: no cover - a device array refuses the implicit copy
+        return np.asarray(xp.to_numpy(array), dtype=float)
 
 
 @dataclass(frozen=True)
@@ -109,27 +129,28 @@ class MaxwellianIntegral:
             c2=slope,
         )
 
-    def log_scaled(self, temperature: np.ndarray) -> np.ndarray:
-        """Return ``log(k exp(E_th / T))`` with ``k`` in m^3/s at ``temperature`` (eV)."""
-        t = np.asarray(temperature, dtype=float)[..., None]
-        y = self.y
+    def log_scaled(self, temperature: Any) -> Any:
+        """Return ``log(k exp(E_th / T))`` with ``k`` in m^3/s at ``temperature`` (eV), on ``xp``."""
+        t = xp.asarray(temperature, dtype=float)[..., None]
+        y = xp.asarray(self.y)
+        c0, c1, c2 = (xp.asarray(c) for c in (self.c0, self.c1, self.c2))
 
-        def antiderivative(points: np.ndarray, index: slice) -> np.ndarray:
-            g = self.c0[index] + self.c1[index] * points + self.c2[index] * points**2
-            dg = self.c1[index] + 2.0 * self.c2[index] * points
-            return -t * np.exp(-points / t) * (g + t * dg + t**2 * 2.0 * self.c2[index])
+        def antiderivative(points: Any, index: slice) -> Any:
+            g = c0[index] + c1[index] * points + c2[index] * points**2
+            dg = c1[index] + 2.0 * c2[index] * points
+            return -t * xp.exp(-points / t) * (g + t * dg + t**2 * 2.0 * c2[index])
 
-        inner = slice(0, y.size - 1)
+        inner = slice(0, self.y.size - 1)
         segments = antiderivative(y[1:], inner) - antiderivative(y[:-1], inner)
-        tail = -antiderivative(y[-1:], slice(y.size - 1, y.size))
-        integral = segments.sum(axis=-1) + tail[..., 0]
+        tail = -antiderivative(y[-1:], slice(self.y.size - 1, self.y.size))
+        integral = xp.sum(segments, axis=-1) + tail[..., 0]
         prefactor = (
             math.sqrt(8.0 / (math.pi * self.mass))
             * (t[..., 0] * ELEMENTARY_CHARGE) ** -1.5
             * ELEMENTARY_CHARGE**2
         )
         with np.errstate(divide="ignore"):
-            return np.log(prefactor * np.maximum(integral, 0.0))
+            return xp.log(prefactor * xp.maximum(integral, 0.0))
 
 
 def inverse_cross_section(
@@ -158,7 +179,7 @@ class _Prepared:
     """How one reaction's coefficient is computed."""
 
     depends_on: str
-    log_scaled: Callable[[np.ndarray], np.ndarray]
+    log_scaled: Callable[[Any], Any]
     threshold: float
     electron_cross_section: CrossSection | None = None
     #: for inverses: (forward index, log weight ratio, energy gap, extra electrons)
@@ -183,9 +204,10 @@ class RateEvaluator:
         if isinstance(rate, Arrhenius):
             a, b, c = rate.a, rate.b, rate.c
 
-            def arrhenius(t: np.ndarray) -> np.ndarray:
-                with np.errstate(divide="ignore"):
-                    return np.log(a) + b * np.log(t) + 0.0 * t
+            log_a = math.log(a) if a > 0.0 else -math.inf
+
+            def arrhenius(t: Any) -> Any:
+                return log_a + b * xp.log(t)
 
             return _Prepared(rate.depends_on, arrhenius, c)
         if isinstance(rate, Tabulated):
@@ -195,27 +217,30 @@ class RateEvaluator:
                     rate.temperatures
                 )
 
-            def tabulated(t: np.ndarray) -> np.ndarray:
-                clipped = np.clip(np.log(t), log_t[0], log_t[-1])
-                return np.interp(clipped, log_t, log_k) + 0.0 * t
+            def tabulated(t: Any) -> Any:
+                clipped = xp.clip(xp.log(t), float(log_t[0]), float(log_t[-1]))
+                return xp.interp(clipped, xp.asarray(log_t), xp.asarray(log_k))
 
             return _Prepared(rate.depends_on, tabulated, rate.threshold)
         if isinstance(rate, Constant):
             value = rate.value
 
-            def constant(t: np.ndarray) -> np.ndarray:
-                with np.errstate(divide="ignore"):
-                    return np.full(np.shape(t), np.log(value))
+            log_value = math.log(value) if value > 0.0 else -math.inf
+
+            def constant(t: Any) -> Any:
+                return xp.full(t.shape, log_value)
 
             return _Prepared(rate.depends_on, constant, 0.0)
         if isinstance(rate, Function):
             function, threshold = rate.function, rate.threshold
             assert function is not None
 
-            def evaluated(t: np.ndarray) -> np.ndarray:
-                k = np.asarray(function(t), dtype=float)
+            def evaluated(t: Any) -> Any:
+                # the function is host code: cross the boundary and back
+                k = np.asarray(function(_host(t)), dtype=float)
                 with np.errstate(divide="ignore"):
-                    return np.log(np.maximum(k, 0.0)) + threshold / t
+                    log_k = np.log(np.maximum(k, 0.0))
+                return xp.asarray(log_k) + threshold / t
 
             return _Prepared(rate.depends_on, evaluated, threshold)
         if isinstance(rate, DetailedBalance):
@@ -281,21 +306,26 @@ class RateEvaluator:
         """The reaction names, in the order of the coefficient vector."""
         return tuple(r.name for r in self.network.reactions)
 
-    def _log_k(self, prepared: _Prepared, t: np.ndarray) -> np.ndarray:
+    def _log_k(self, prepared: _Prepared, t: Any) -> Any:
         log_k = prepared.log_scaled(t)
         if prepared.inverse is None:
             return log_k - prepared.threshold / t
         _, log_weights, gap, extra = prepared.inverse
         log_k = log_k + log_weights + (gap - prepared.threshold) / t
         if extra:
-            log_k = log_k + extra * np.log(thermal_de_broglie_cubed(t))
+            log_k = log_k + extra * 1.5 * (math.log(_DE_BROGLIE) - xp.log(t))
         return log_k
 
-    def _escape(self, k: np.ndarray, conditions: Conditions) -> np.ndarray:
+    def escape_factors(self, conditions: Conditions) -> np.ndarray:
+        """Return the factor of every reaction: the escape factor of a line, 1 otherwise."""
+        factor = np.ones(len(self._prepared))
         for i in np.flatnonzero(self._radiative):
             reaction = self.network.reactions[i]
-            k[..., i] *= conditions.escape.get(reaction.name, reaction.escape)
-        return k
+            factor[i] = conditions.escape.get(reaction.name, reaction.escape)
+        return factor
+
+    def _escape(self, k: np.ndarray, conditions: Conditions) -> np.ndarray:
+        return k * self.escape_factors(conditions)
 
     @sp.profile("opencr.rate_coefficients", tags=PROFILE_TAGS)
     def coefficients(self, conditions: Conditions) -> np.ndarray:
@@ -312,29 +342,48 @@ class RateEvaluator:
                     prepared.electron_cross_section, tabulated.energy, tabulated.values
                 )
                 continue
-            t = np.asarray(temperatures[prepared.depends_on], dtype=float)
-            log_k = self._log_k(prepared, t)
-            k[i] = 0.0 if log_k < _LOG_TINY else math.exp(min(float(log_k), 700.0))
+            t = xp.asarray(temperatures[prepared.depends_on], dtype=float)
+            log_k = float(self._log_k(prepared, t))
+            k[i] = 0.0 if log_k < _LOG_TINY else math.exp(min(log_k, 700.0))
         return self._escape(k, conditions)
+
+    @sp.profile("opencr.rate_coefficients_batched", tags=PROFILE_TAGS)
+    def coefficients_batched(self, conditions: Conditions, electron_temperatures: Any):
+        """Return ``k`` of shape ``(len(electron_temperatures), n_reactions)`` on ``xp``.
+
+        Maxwellian electrons at each temperature; everything else (the heavy
+        temperatures, the escape factors) from ``conditions``. The input is
+        copied to ``xp`` and the result stays there (``xp.to_numpy`` brings it
+        back).
+
+        Raises:
+            ValueError: A non-Maxwellian EEDF (integrated on the host only), or
+                a temperature that is not positive.
+        """
+        if conditions.eedf is not None and not conditions.eedf.is_maxwellian:
+            raise ValueError(
+                "a batched evaluation is Maxwellian; a non-Maxwellian EEDF is "
+                "integrated per point with RateEvaluator.coefficients"
+            )
+        te = xp.asarray(np.ravel(_host(electron_temperatures)), dtype=float)
+        if te.size and bool(xp.min(te) <= 0.0):
+            raise ValueError("temperatures must be > 0")
+        temperatures = conditions.heavy_temperature
+        columns = []
+        for prepared in self._prepared:
+            if prepared.depends_on == "electron":
+                t = te
+            else:
+                t = xp.full(te.shape, temperatures[prepared.depends_on])
+            log_k = self._log_k(prepared, t)
+            columns.append(
+                xp.where(log_k < _LOG_TINY, 0.0, xp.exp(xp.minimum(log_k, 700.0)))
+            )
+        k = xp.stack(columns, axis=-1)
+        return k * xp.asarray(self.escape_factors(conditions))
 
     def coefficients_scan(
         self, conditions: Conditions, electron_temperatures: np.ndarray
     ) -> np.ndarray:
-        """Return ``k`` of shape ``(len(electron_temperatures), n_reactions)``.
-
-        Maxwellian electrons at each temperature; everything else from
-        ``conditions``. Vectorised over the temperatures.
-        """
-        te = np.asarray(electron_temperatures, dtype=float).ravel()
-        if np.any(te <= 0.0):
-            raise ValueError("temperatures must be > 0")
-        temperatures = conditions.heavy_temperature
-        k = np.empty((te.size, len(self._prepared)))
-        for i, prepared in enumerate(self._prepared):
-            if prepared.depends_on == "electron":
-                t = te
-            else:
-                t = np.full(te.size, temperatures[prepared.depends_on])
-            log_k = self._log_k(prepared, t)
-            k[:, i] = np.where(log_k < _LOG_TINY, 0.0, np.exp(np.minimum(log_k, 700.0)))
-        return self._escape(k, conditions)
+        """Return ``k`` of shape ``(len(electron_temperatures), n_reactions)`` on the host."""
+        return _host(self.coefficients_batched(conditions, electron_temperatures))

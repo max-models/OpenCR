@@ -32,6 +32,7 @@ export default defineDocs({
 				{ label: 'Data and provenance', slug: 'guides/data' },
 				{ label: 'Solvers and troubleshooting', slug: 'guides/solvers' },
 				{ label: 'Verification', slug: 'guides/verification' },
+				{ label: 'Backends', slug: 'guides/backends' },
 			],
 		},
 		{
