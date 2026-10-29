@@ -7,6 +7,8 @@ name                                    model
 ``hydrogen/molecular/basic``            H2(X, v), its electronic states, H, H+ and H2+
                                         (:mod:`~opencr.models.hydrogen_molecular`)
 ``hydrogen/molecular/ions``             the same with H-, H3+ and their chemistry
+``argon/metastable``                    Ar, lumped Ar(m) and Ar(r), Ar+; a sputtered metal with
+                                        ``metal="Cu"`` (:mod:`~opencr.models.argon`)
 ======================================  ===================================================
 
 Options are passed on to the model's builder, e.g.
@@ -83,4 +85,23 @@ register_model(
     "hydrogen/molecular/ions",
     lambda **options: _molecular_hydrogen(ions=True, **options),
     "hydrogen/molecular/basic with H-, H3+ and the negative- and molecular-ion chemistry",
+)
+
+
+def _argon(metal: str | None = None, **options: Any) -> Model:
+    from opencr.models.argon import argon_network
+
+    return Model(
+        argon_network(metal=metal, **options),
+        drivers=("Ar",) if metal is None else ("Ar", metal),
+        description="Argon with lumped metastable and resonant 4s levels"
+        + (f" and sputtered {metal}" if metal else "")
+        + ", for magnetron discharges.",
+    )
+
+
+register_model(
+    "argon/metastable",
+    _argon,
+    "Ar, Ar(m), Ar(r) and Ar+ (global-model set), optionally a sputtered metal",
 )
