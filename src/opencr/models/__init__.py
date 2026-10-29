@@ -4,6 +4,9 @@
 name                                    model
 ======================================  ===================================================
 ``hydrogen/atomic/basic``               H(n=1..n_max) and H+ (:mod:`~opencr.models.hydrogen_atomic`)
+``hydrogen/molecular/basic``            H2(X, v), its electronic states, H, H+ and H2+
+                                        (:mod:`~opencr.models.hydrogen_molecular`)
+``hydrogen/molecular/ions``             the same with H-, H3+ and their chemistry
 ======================================  ===================================================
 
 Options are passed on to the model's builder, e.g.
@@ -56,4 +59,28 @@ register_model(
     "hydrogen/atomic/basic",
     _atomic_hydrogen,
     "H(n=1..n_max) and H+ with electron collisions, recombination and emission",
+)
+
+
+def _molecular_hydrogen(ions: bool = False, **options: Any) -> Model:
+    from opencr.models.hydrogen_molecular import molecular_hydrogen_network
+
+    return Model(
+        molecular_hydrogen_network(ions=ions, **options),
+        drivers=("H2(X,v=0)", "H(n=1)", "H+", "H2+"),
+        description="Molecular hydrogen resolved in the vibrational levels of H2(X), "
+        "with electronic excitation, dissociation, ionization and emission"
+        + (", and the H-, H2+ and H3+ chemistry." if ions else "."),
+    )
+
+
+register_model(
+    "hydrogen/molecular/basic",
+    _molecular_hydrogen,
+    "H2(X, v=0..14), B, C, EF, a, d, H, H+ and H2+ with electron collisions and emission",
+)
+register_model(
+    "hydrogen/molecular/ions",
+    lambda **options: _molecular_hydrogen(ions=True, **options),
+    "hydrogen/molecular/basic with H-, H3+ and the negative- and molecular-ion chemistry",
 )
