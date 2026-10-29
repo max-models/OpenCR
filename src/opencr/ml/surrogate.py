@@ -27,7 +27,9 @@ def _default_estimator(seed: int, dims: int) -> Any:
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
 
-    kernel = ConstantKernel() * RBF(length_scale=[1.0] * dims) + WhiteKernel(
+    # one length scale per input (anisotropic); the stubs type it as a float
+    scales: Any = np.ones(dims)
+    kernel = ConstantKernel() * RBF(length_scale=scales) + WhiteKernel(
         1e-6, (1e-12, 1e-2)
     )
     return make_pipeline(
