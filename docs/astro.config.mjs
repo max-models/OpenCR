@@ -33,6 +33,7 @@ export default defineDocs({
 				{ label: 'Solvers and troubleshooting', slug: 'guides/solvers' },
 				{ label: 'Verification', slug: 'guides/verification' },
 				{ label: 'Backends', slug: 'guides/backends' },
+				{ label: 'Benchmarks', slug: 'guides/benchmarks' },
 			],
 		},
 		{
