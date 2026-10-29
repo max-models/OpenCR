@@ -38,7 +38,7 @@ Problems are collected and raised together as a `DataError`.
 
 ## Licences
 
-OpenCR's code is MIT licensed. It ships only data it may redistribute: published analytic fits
+OpenCR ships only data it may redistribute: published analytic fits
 (`licence="published-fit"`) and public-domain constants. LXCat and OPEN-ADAS data may not be
 redistributed; OpenCR reads the user's own downloads and records their terms in the provenance
 (`Provenance.redistributable` is then false).
