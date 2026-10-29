@@ -40,7 +40,7 @@ plasma.
 - The $l$ sub-states are assumed statistically populated. This needs fast $l$-mixing, which
   at low density fails for $n = 2$ (the metastable 2s).
 - Heavy-particle collisions with excited atoms (proton impact, which matters for high $n$ at
-  high density) are not included, nor is molecular hydrogen: H₂, H₂⁺ and H⁻ are later models.
+  high density) are not included. Molecular hydrogen is in [Molecular hydrogen](/OpenCR/guides/molecular-hydrogen/).
 - The cross sections are uncertain by 10–20% from the ground state and 20–50% near threshold
   between excited states (the report's estimates); the effective coefficients inherit that.
 
