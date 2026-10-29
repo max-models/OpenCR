@@ -58,6 +58,39 @@ class JaxModel:
             the arguments of the methods. A non-Maxwellian EEDF is refused.
     """
 
+    def _rates_impl(self, electron_temperature: Any) -> Any:
+        te = jnp.atleast_1d(jnp.asarray(electron_temperature, dtype=float))
+        return self._evaluator.evaluate(self._prepared, self.conditions, te, jnp)
+
+    def _rhs_impl(
+        self, n: Any, electron_temperature: Any, electron_density: Any
+    ) -> Any:
+        k = self._rates(electron_temperature)[0]
+        padded = jnp.append(n, 1.0)
+        product = jnp.prod(padded[self._slots], axis=1)
+        ne = jnp.where(
+            electron_density > 0.0,
+            electron_density,
+            self._prescribed_charge + self._charges @ n,
+        )
+        ne = jnp.maximum(ne, 0.0)
+        w = k * self._prescribed * ne**self._order * product
+        return self._stoichiometry @ w
+
+    def _reduce_impl(self, electron_temperature: Any, electron_density: Any) -> Any:
+        k = self._rates(electron_temperature)[0]
+        weighted = k * electron_density**self._matrix_order
+        matrix = jnp.einsum("ir,r,rj->ij", self._n_matrix, weighted, self._selector)
+        p, q = self._partition
+        m_qq = matrix[jnp.ix_(q, q)]
+        coefficients = -jnp.linalg.solve(m_qq, matrix[jnp.ix_(q, p)])
+        effective = matrix[jnp.ix_(p, p)] + matrix[jnp.ix_(p, q)] @ coefficients
+        return k, coefficients, effective
+
+    def _effective_impl(self, i: int, j: int, te: Any, ne: Any) -> Any:
+        _, _, effective = self._reduce_impl(te, ne)
+        return effective[i, j] / ne
+
     def __init__(self, model: Model, conditions: Conditions) -> None:
         """Prepare the rate evaluators and the structure arrays."""
         if conditions.eedf is not None and not conditions.eedf.is_maxwellian:
@@ -118,29 +151,10 @@ class JaxModel:
         self._reduce = jax.jit(jax.vmap(self._reduce_impl))
         self._effective = jax.jit(self._effective_impl, static_argnums=(0, 1))
 
-    def _rates_impl(self, electron_temperature: Any) -> Any:
-        te = jnp.atleast_1d(jnp.asarray(electron_temperature, dtype=float))
-        return self._evaluator.evaluate(self._prepared, self.conditions, te, jnp)
-
     def rates(self, electron_temperature: Any) -> Any:
         """Return ``k`` of shape ``(..., n_reactions)`` for Maxwellian electrons at ``T_e`` (eV)."""
         k = self._rates(electron_temperature)
         return k[0] if jnp.ndim(electron_temperature) == 0 else k
-
-    def _rhs_impl(
-        self, n: Any, electron_temperature: Any, electron_density: Any
-    ) -> Any:
-        k = self._rates(electron_temperature)[0]
-        padded = jnp.append(n, 1.0)
-        product = jnp.prod(padded[self._slots], axis=1)
-        ne = jnp.where(
-            electron_density > 0.0,
-            electron_density,
-            self._prescribed_charge + self._charges @ n,
-        )
-        ne = jnp.maximum(ne, 0.0)
-        w = k * self._prescribed * ne**self._order * product
-        return self._stoichiometry @ w
 
     def rhs(
         self, n: Any, electron_temperature: float, electron_density: float | None = None
@@ -161,15 +175,15 @@ class JaxModel:
             jnp.asarray(n, dtype=float), float(electron_temperature), ne
         )
 
-    def _reduce_impl(self, electron_temperature: Any, electron_density: Any) -> Any:
-        k = self._rates(electron_temperature)[0]
-        weighted = k * electron_density**self._matrix_order
-        matrix = jnp.einsum("ir,r,rj->ij", self._n_matrix, weighted, self._selector)
-        p, q = self._partition
-        m_qq = matrix[jnp.ix_(q, q)]
-        coefficients = -jnp.linalg.solve(m_qq, matrix[jnp.ix_(q, p)])
-        effective = matrix[jnp.ix_(p, p)] + matrix[jnp.ix_(p, q)] @ coefficients
-        return k, coefficients, effective
+    def _reducible(self) -> BatchedQuasiStatic:
+        if self._batched is None:
+            raise ValueError(
+                "the quasi-static reduction needs every reaction to have at most one "
+                "heavy reactant"
+            )
+        if self._partition[1].size == 0:
+            raise ValueError("every state is a driver: nothing to reduce")
+        return self._batched
 
     def reduction(
         self, electron_temperatures: Any, electron_densities: Any
@@ -202,16 +216,6 @@ class JaxModel:
             np.asarray(k),
         )
 
-    def _reducible(self) -> BatchedQuasiStatic:
-        if self._batched is None:
-            raise ValueError(
-                "the quasi-static reduction needs every reaction to have at most one "
-                "heavy reactant"
-            )
-        if self._partition[1].size == 0:
-            raise ValueError("every state is a driver: nothing to reduce")
-        return self._batched
-
     def effective_rate(
         self, source: str, target: str, electron_temperature: Any, electron_density: Any
     ) -> Any:
@@ -228,7 +232,3 @@ class JaxModel:
             jnp.asarray(electron_temperature, dtype=float),
             jnp.asarray(electron_density, dtype=float),
         )
-
-    def _effective_impl(self, i: int, j: int, te: Any, ne: Any) -> Any:
-        _, _, effective = self._reduce_impl(te, ne)
-        return effective[i, j] / ne
