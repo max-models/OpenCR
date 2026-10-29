@@ -35,7 +35,8 @@ trapping): the conditions' value for the reaction if given, else the
 reaction's own.
 
 **Arrays.** Every evaluator is written against cunumpy's ``xp`` (NumPy or
-CuPy for the whole process, see :mod:`opencr.backends`):
+CuPy for the whole process, see :mod:`opencr.backends`; the optional JAX
+backend passes ``jax.numpy`` in its place):
 :meth:`RateEvaluator.coefficients_batched` evaluates all reactions at many
 electron temperatures at once there, :meth:`RateEvaluator.coefficients` one
 set of conditions, as floats on the host. A :class:`~opencr.core.rates.Function`
@@ -47,8 +48,9 @@ not batched.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any
 
 import cunumpy as xp
@@ -75,6 +77,8 @@ __all__ = ["MaxwellianIntegral", "RateEvaluator", "inverse_cross_section"]
 
 #: log of the smallest positive rate kept; below it a rate is zero.
 _LOG_TINY = math.log(np.finfo(float).tiny)
+#: temperatures per chunk of a batched evaluation (bounds the (chunk, U, S) intermediate).
+_CHUNK = 32
 #: ``h^2 / (2 pi m_e e)`` in m^2 eV: ``lambda^3 = (this / T)^(3/2)``.
 _DE_BROGLIE = PLANCK**2 / (2.0 * math.pi * ELECTRON_MASS * ELEMENTARY_CHARGE)
 
@@ -129,7 +133,7 @@ class MaxwellianIntegral:
             c2=slope,
         )
 
-    def log_scaled(self, temperature: Any) -> Any:
+    def log_scaled(self, temperature: Any, xp: ModuleType = xp) -> Any:
         """Return ``log(k exp(E_th / T))`` with ``k`` in m^3/s at ``temperature`` (eV), on ``xp``."""
         t = xp.asarray(temperature, dtype=float)[..., None]
         y = xp.asarray(self.y)
@@ -179,11 +183,89 @@ class _Prepared:
     """How one reaction's coefficient is computed."""
 
     depends_on: str
-    log_scaled: Callable[[Any], Any]
+    log_scaled: Callable[..., Any]
     threshold: float
     electron_cross_section: CrossSection | None = None
     #: for inverses: (forward index, log weight ratio, energy gap, extra electrons)
     inverse: tuple[int, float, float, int] | None = None
+    #: the Maxwellian integral when the rate is a cross section (vectorised in batches)
+    integral: MaxwellianIntegral | None = None
+    #: the log of a constant rate, else None
+    constant: float | None = None
+
+
+class _Stack:
+    """The Maxwellian integrals of a prepared list, padded into one set of arrays.
+
+    ``log_scaled(t, xp)`` returns ``(..., U)`` for the ``U`` distinct integrals
+    at temperatures ``t`` of shape ``(...)``, the vectorised form of
+    :meth:`MaxwellianIntegral.log_scaled`; ``index[r]`` is the integral of
+    reaction ``r`` (-1 for none).
+    """
+
+    def __init__(self, prepared: Sequence[_Prepared]) -> None:
+        """Collect and pad the integrals."""
+        unique: dict[int, int] = {}
+        integrals: list[MaxwellianIntegral] = []
+        self.index = np.full(len(prepared), -1, dtype=int)
+        for r, item in enumerate(prepared):
+            if item.integral is None:
+                continue
+            key = id(item.integral)
+            if key not in unique:
+                unique[key] = len(integrals)
+                integrals.append(item.integral)
+            self.index[r] = unique[key]
+        u = len(integrals)
+        width = max((g.y.size for g in integrals), default=1)
+        self.y = np.zeros((u, width))
+        self.c0 = np.zeros((u, width - 1))
+        self.c1 = np.zeros((u, width - 1))
+        self.c2 = np.zeros((u, width - 1))
+        self.tail_y = np.zeros(u)
+        self.tail_c0 = np.zeros(u)
+        self.tail_c1 = np.zeros(u)
+        self.log_prefactor = np.zeros(u)
+        for k, g in enumerate(integrals):
+            n = g.y.size
+            self.y[k, :n] = g.y
+            self.y[k, n:] = g.y[-1]  # repeated points: zero-length segments
+            self.c0[k, : n - 1] = g.c0[:-1]
+            self.c1[k, : n - 1] = g.c1[:-1]
+            self.c2[k, : n - 1] = g.c2[:-1]
+            self.tail_y[k] = g.y[-1]
+            self.tail_c0[k] = g.c0[-1]
+            self.tail_c1[k] = g.c1[-1]
+            self.log_prefactor[k] = math.log(
+                math.sqrt(8.0 / (math.pi * g.mass)) * ELEMENTARY_CHARGE**0.5
+            )
+
+    def log_scaled(self, temperature: Any, xp: ModuleType = xp) -> Any:
+        """Return ``log(k exp(E_th / T))`` of every integral, shape ``(..., U)``."""
+        t = xp.asarray(temperature, dtype=float)[..., None, None]
+        y, c0, c1, c2 = (xp.asarray(a) for a in (self.y, self.c0, self.c1, self.c2))
+        tail_y, tail_c0, tail_c1 = (
+            xp.asarray(a) for a in (self.tail_y, self.tail_c0, self.tail_c1)
+        )
+
+        def antiderivative(points: Any, a0: Any, a1: Any, a2: Any) -> Any:
+            g = a0 + a1 * points + a2 * points**2
+            dg = a1 + 2.0 * a2 * points
+            return -t * xp.exp(-points / t) * (g + t * dg + t**2 * 2.0 * a2)
+
+        segments = antiderivative(y[:, 1:], c0, c1, c2) - antiderivative(
+            y[:, :-1], c0, c1, c2
+        )
+        tail = -antiderivative(tail_y[:, None], tail_c0[:, None], tail_c1[:, None], 0.0)
+        integral = xp.sum(segments, axis=-1) + tail[..., 0]
+        kt = t[..., 0, 0][..., None] * ELEMENTARY_CHARGE
+        with np.errstate(divide="ignore"):
+            return (
+                xp.asarray(self.log_prefactor)
+                - 1.5 * xp.log(kt)
+                + 1.5 * math.log(ELEMENTARY_CHARGE)
+                + xp.log(xp.maximum(integral, 0.0))
+            )
 
 
 class RateEvaluator:
@@ -199,14 +281,18 @@ class RateEvaluator:
             integral = MaxwellianIntegral.from_rate(rate)
             electron = rate.table if rate.depends_on == "electron" else None
             return _Prepared(
-                rate.depends_on, integral.log_scaled, integral.threshold, electron
+                rate.depends_on,
+                integral.log_scaled,
+                integral.threshold,
+                electron,
+                integral=integral,
             )
         if isinstance(rate, Arrhenius):
             a, b, c = rate.a, rate.b, rate.c
 
             log_a = math.log(a) if a > 0.0 else -math.inf
 
-            def arrhenius(t: Any) -> Any:
+            def arrhenius(t: Any, xp: ModuleType = xp) -> Any:
                 return log_a + b * xp.log(t)
 
             return _Prepared(rate.depends_on, arrhenius, c)
@@ -217,7 +303,7 @@ class RateEvaluator:
                     rate.temperatures
                 )
 
-            def tabulated(t: Any) -> Any:
+            def tabulated(t: Any, xp: ModuleType = xp) -> Any:
                 clipped = xp.clip(xp.log(t), float(log_t[0]), float(log_t[-1]))
                 return xp.interp(clipped, xp.asarray(log_t), xp.asarray(log_k))
 
@@ -227,15 +313,15 @@ class RateEvaluator:
 
             log_value = math.log(value) if value > 0.0 else -math.inf
 
-            def constant(t: Any) -> Any:
+            def constant(t: Any, xp: ModuleType = xp) -> Any:
                 return xp.full(t.shape, log_value)
 
-            return _Prepared(rate.depends_on, constant, 0.0)
+            return _Prepared(rate.depends_on, constant, 0.0, constant=log_value)
         if isinstance(rate, Function):
             function, threshold = rate.function, rate.threshold
             assert function is not None
 
-            def evaluated(t: Any) -> Any:
+            def evaluated(t: Any, xp: ModuleType = xp) -> Any:
                 # the function is host code: cross the boundary and back
                 k = np.asarray(function(_host(t)), dtype=float)
                 with np.errstate(divide="ignore"):
@@ -259,6 +345,7 @@ class RateEvaluator:
         self._radiative = np.array(
             [r.kind == "spontaneous_emission" for r in network.reactions], dtype=bool
         )
+        self._stacks: dict[int, tuple[Sequence[_Prepared], _Stack]] = {}
 
     def _prepare_inverse(self, reaction: Reaction, index: dict[str, int]) -> _Prepared:
         assert isinstance(reaction.rate, DetailedBalance)
@@ -299,6 +386,8 @@ class RateEvaluator:
             prepared.threshold,
             electron_cs,
             (forward_index, weights_in - weights_out, gap, extra),
+            integral=prepared.integral,
+            constant=prepared.constant,
         )
 
     @property
@@ -306,8 +395,8 @@ class RateEvaluator:
         """The reaction names, in the order of the coefficient vector."""
         return tuple(r.name for r in self.network.reactions)
 
-    def _log_k(self, prepared: _Prepared, t: Any) -> Any:
-        log_k = prepared.log_scaled(t)
+    def _log_k(self, prepared: _Prepared, t: Any, xp: ModuleType = xp) -> Any:
+        log_k = prepared.log_scaled(t, xp)
         if prepared.inverse is None:
             return log_k - prepared.threshold / t
         _, log_weights, gap, extra = prepared.inverse
@@ -368,18 +457,77 @@ class RateEvaluator:
         te = xp.asarray(np.ravel(_host(electron_temperatures)), dtype=float)
         if te.size and bool(xp.min(te) <= 0.0):
             raise ValueError("temperatures must be > 0")
-        temperatures = conditions.heavy_temperature
+        chunks = [
+            self.evaluate(self._prepared, conditions, te[i : i + _CHUNK])
+            for i in range(0, max(te.size, 1), _CHUNK)
+        ]
+        return xp.concatenate(chunks, axis=0)
+
+    def _stack(self, prepared: Sequence[_Prepared]) -> _Stack:
+        key = id(prepared)
+        if key not in self._stacks:
+            self._stacks[key] = (prepared, _Stack(prepared))
+        return self._stacks[key][1]
+
+    def evaluate(
+        self,
+        prepared: Sequence[_Prepared],
+        conditions: Conditions,
+        electron_temperatures: Any,
+        xp: ModuleType = xp,
+    ) -> Any:
+        """Return ``k`` of shape ``(..., n_reactions)`` on the namespace ``xp``.
+
+        The core of :meth:`coefficients_batched`, for a given list of prepared
+        reactions (the JAX backend passes its own, with ``Function`` rates
+        tabulated) and any array namespace with the NumPy API; ``conditions``
+        gives the heavy temperatures and the escape factors. The Maxwellian
+        integrals of all cross sections are evaluated at once
+        (:class:`_Stack`), the thresholds and detailed-balance factors as
+        vectors; only Arrhenius, tabulated and function rates go one by one.
+        An intermediate of ``(..., U, S)`` numbers (integrals times table
+        points) is formed, so a long batch is better evaluated in chunks.
+        """
+        te = xp.asarray(electron_temperatures, dtype=float)
+        stack = self._stack(prepared)
+        heavy = conditions.heavy_temperature
+        n = len(prepared)
+        electron = np.array([p.depends_on == "electron" for p in prepared])
+        other = np.array([heavy[p.depends_on] for p in prepared])
+        t = xp.where(
+            xp.asarray(electron),
+            te[..., None],
+            xp.asarray(other) * xp.ones_like(te)[..., None],
+        )
+        logs = stack.log_scaled(te, xp) if stack.y.size else None
+        constants = np.array(
+            [math.nan if p.constant is None else p.constant for p in prepared]
+        )
         columns = []
-        for prepared in self._prepared:
-            if prepared.depends_on == "electron":
-                t = te
+        for r, item in enumerate(prepared):
+            if item.integral is not None:
+                assert logs is not None
+                columns.append(logs[..., stack.index[r]])
+            elif item.constant is not None:
+                columns.append(xp.full(te.shape, constants[r]))
             else:
-                t = xp.full(te.shape, temperatures[prepared.depends_on])
-            log_k = self._log_k(prepared, t)
-            columns.append(
-                xp.where(log_k < _LOG_TINY, 0.0, xp.exp(xp.minimum(log_k, 700.0)))
-            )
-        k = xp.stack(columns, axis=-1)
+                columns.append(item.log_scaled(t[..., r], xp))
+        log_k = xp.stack(columns, axis=-1)
+        threshold = np.array([p.threshold for p in prepared])
+        inverse = np.array([p.inverse is not None for p in prepared])
+        log_weights = np.array([p.inverse[1] if p.inverse else 0.0 for p in prepared])
+        gap = np.array([p.inverse[2] if p.inverse else 0.0 for p in prepared])
+        extra = np.array(
+            [p.inverse[3] if p.inverse else 0 for p in prepared], dtype=float
+        )
+        # forward: log k = log(k e^{E/T}) - E/T; inverse: + log g + (dE - E)/T + extra log lambda^3
+        shift = xp.where(
+            xp.asarray(inverse), xp.asarray(gap - threshold), -xp.asarray(threshold)
+        )
+        log_k = log_k + xp.asarray(log_weights) + shift / t
+        log_k = log_k + xp.asarray(extra) * 1.5 * (math.log(_DE_BROGLIE) - xp.log(t))
+        k = xp.where(log_k < _LOG_TINY, 0.0, xp.exp(xp.minimum(log_k, 700.0)))
+        assert k.shape[-1] == n
         return k * xp.asarray(self.escape_factors(conditions))
 
     def coefficients_scan(

@@ -43,6 +43,28 @@ model (user Python code; its temperatures are copied to the host and the result 
 non-Maxwellian EEDF, which plasmacoll integrates per point and which the batched path refuses.
 
 Not batched: the closed and quasi-neutral steady states, the transient solve, and the
-analysis of one result. They stay on the reference path. A JAX backend (jitted rates,
-automatic-differentiation Jacobians) and the benchmarks that decide whether a GPU is worth it
-are later steps.
+analysis of one result. They stay on the reference path.
+
+## The JAX backend (optional)
+
+`opencr.backends.jax_backend.JaxModel(model, conditions)` needs the `jax` extra; nothing in
+the core imports JAX. It reuses the reference's prepared rate evaluators with `jax.numpy` as
+the array namespace and the structure of the population equations, at the heavy temperatures,
+escape factors and prescribed densities of `conditions`:
+
+| Method | What it does |
+| --- | --- |
+| `rates(T_e)` | the rate coefficients of every reaction at one or many temperatures, jitted |
+| `rhs(n, T_e, n_e=None)` | $R(n)$ of the evolving states (quasi-neutral when `n_e` is `None`) |
+| `jacobian(n, T_e, n_e=None)` | $\partial R/\partial n$ by forward-mode automatic differentiation, dense |
+| `reduction(T_e, n_e)` | the quasi-static reduction of a batch of points with `jax.vmap`, as a `BatchedReduction` |
+| `effective_rate(source, target, T_e, n_e)` | a differentiable scalar: `jax.grad` of it is the sensitivity to $T_e$ and $n_e$ |
+
+The AD Jacobian is checked against the analytic sparse one (including the quasi-neutral
+terms and reactions between two evolving states) and against finite differences; the
+vmapped reduction against the batched path, and the gradient of $S_\mathrm{CR}$ against
+finite differences. Two things differ from the reference: a `Function` rate (user Python
+code) is tabulated on its `file_temperatures` and interpolated in log-log, as when it is
+written to a file (the radiative recombination of the hydrogen model is then within
+$10^{-4}$), and a non-Maxwellian EEDF is refused. The first call of each method compiles it;
+the [benchmarks](/OpenCR/guides/benchmarks/) separate that from the warm time.

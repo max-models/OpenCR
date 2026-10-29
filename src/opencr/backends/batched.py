@@ -203,14 +203,7 @@ class BatchedQuasiStatic:
         te, ne = np.ravel(te), np.ravel(ne)
         if np.any(ne <= 0.0):
             raise ValueError("electron densities must be > 0")
-        drivers = self.drivers_of(conditions)
-        if not drivers:
-            raise ValueError("no drivers: give Conditions.densities or Model.drivers")
-        names = self.model.network.state_names
-        index = {n: i for i, n in enumerate(names)}
-        excited = tuple(n for n in names if n not in drivers)
-        p = [index[d] for d in drivers]
-        q = [index[s] for s in excited]
+        drivers, excited, p, q = self.partition(conditions)
         k, matrix = self.matrices(conditions, te, ne)
         m_qq = matrix[:, q][:, :, q]
         m_qp = matrix[:, q][:, :, p]
@@ -235,26 +228,56 @@ class BatchedQuasiStatic:
         else:
             coefficients = xp.zeros((te.size, 0, len(p)))
             effective = m_pp
-        c = np.asarray(xp.to_numpy(coefficients), dtype=float)
-        k_host = np.asarray(xp.to_numpy(k), dtype=float)
+        return self.assemble(
+            te,
+            ne,
+            drivers,
+            excited,
+            np.asarray(xp.to_numpy(coefficients), dtype=float),
+            np.asarray(xp.to_numpy(effective), dtype=float),
+            np.asarray(xp.to_numpy(k), dtype=float),
+        )
+
+    def assemble(
+        self,
+        te: np.ndarray,
+        ne: np.ndarray,
+        drivers: tuple[str, ...],
+        excited: tuple[str, ...],
+        coefficients: np.ndarray,
+        effective: np.ndarray,
+        rates: np.ndarray,
+    ) -> BatchedReduction:
+        """Return the :class:`BatchedReduction` of host arrays, with the PECs from ``coefficients``."""
         pec = np.zeros((te.size, len(self._lines), len(drivers)))
         for j, (upper, r) in enumerate(
             zip(self._line_upper, self._line_index, strict=True)
         ):
             if upper in excited:
                 pec[:, j, :] = (
-                    k_host[:, r, None] * c[:, excited.index(upper), :] / ne[:, None]
+                    rates[:, r, None]
+                    * coefficients[:, excited.index(upper), :]
+                    / ne[:, None]
                 )
         return BatchedReduction(
-            te,
-            ne,
+            te, ne, drivers, excited, coefficients, effective, rates, self._lines, pec
+        )
+
+    def partition(
+        self, conditions: Conditions
+    ) -> tuple[tuple[str, ...], tuple[str, ...], list[int], list[int]]:
+        """Return the drivers, the excited states and their indices in the state order."""
+        drivers = self.drivers_of(conditions)
+        if not drivers:
+            raise ValueError("no drivers: give Conditions.densities or Model.drivers")
+        names = self.model.network.state_names
+        index = {n: i for i, n in enumerate(names)}
+        excited = tuple(n for n in names if n not in drivers)
+        return (
             drivers,
             excited,
-            c,
-            np.asarray(xp.to_numpy(effective), dtype=float),
-            k_host,
-            self._lines,
-            pec,
+            [index[d] for d in drivers],
+            [index[s] for s in excited],
         )
 
 
