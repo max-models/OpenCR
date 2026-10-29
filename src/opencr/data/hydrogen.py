@@ -43,6 +43,7 @@ __all__ = [
     "JOHNSON_1972",
     "LEVELS_PROVENANCE",
     "RADIATIVE_RECOMBINATION_PROVENANCE",
+    "VRIENS_SMEETS_PROVENANCE",
     "einstein_a",
     "hydrogen_levels",
     "level_energy",
@@ -85,6 +86,21 @@ RADIATIVE_RECOMBINATION_PROVENANCE = Provenance(
     validity=(Validity("electron_temperature", 0.01, 1.0e4),),
     uncertainty=0.1,
     uncertainty_note="Kramers' formula without Gaunt factor for n >= 3",
+    licence="published-fit",
+)
+VRIENS_SMEETS_PROVENANCE = Provenance(
+    Reference(
+        "L. Vriens and A. H. M. Smeets, Cross-section and rate formulas for "
+        "electron-impact ionization, excitation, deexcitation, and total depopulation "
+        "of excited atoms, Phys. Rev. A 22, 940 (1980)",
+        doi="10.1103/PhysRevA.22.940",
+        detail="eq. (17)",
+    ),
+    units="m^3/s against eV",
+    conversions=("1 cm^3/s -> 1e-6 m^3/s",),
+    validity=(Validity("electron_temperature", 0.01, 1.0e4),),
+    uncertainty=0.2,
+    uncertainty_note="about 20% for n >= 3; Maxwellian electrons only",
     licence="published-fit",
 )
 IMPACT_PROVENANCE = Provenance(

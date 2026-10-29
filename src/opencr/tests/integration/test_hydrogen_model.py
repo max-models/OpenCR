@@ -120,6 +120,36 @@ def test_result_reduction(model) -> None:
     assert start.population("H(n=2)") == pytest.approx(result.population("H(n=2)"))
 
 
-def test_n_max_is_limited_to_johnsons_range() -> None:
-    with pytest.raises(ValueError, match="24"):
-        atomic_hydrogen_network(25)
+def test_n_max_is_limited() -> None:
+    with pytest.raises(ValueError, match="n_max"):
+        atomic_hydrogen_network(61)
+
+
+def test_high_levels_use_vriens_smeets() -> None:
+    from opencr.core.rates import CrossSectionRate, Function
+
+    network = atomic_hydrogen_network(30)
+    assert isinstance(network.reaction("exc:23-24").rate, CrossSectionRate)
+    assert isinstance(network.reaction("exc:1-25").rate, Function)
+    assert isinstance(network.reaction("exc:24-30").rate, Function)
+    model = opencr.Model(network, drivers=("H(n=1)", "H+"))
+    low = opencr.Model(atomic_hydrogen_network(24), drivers=("H(n=1)", "H+"))
+    conditions = opencr.Conditions(2.0, 1e19, densities={"H(n=1)": 1e19, "H+": 1e19})
+    high = model.effective_rates(conditions)
+    base = low.effective_rates(conditions)
+    # the levels above 24 add a little recombination and leave the low levels alone
+    recombination = high.effective_rate("H+", "H(n=1)")
+    assert recombination == pytest.approx(base.effective_rate("H+", "H(n=1)"), rel=0.2)
+    assert high.population_coefficient("H(n=3)", "H(n=1)") == pytest.approx(
+        base.population_coefficient("H(n=3)", "H(n=1)"), rel=1e-3
+    )
+    # Saha-Boltzmann without radiation holds with the Vriens-Smeets rates too
+    thermal = opencr.Model(atomic_hydrogen_network(30, radiative_recombination_=False))
+    lines = {r.name: 0.0 for r in thermal.network.reactions if r.name.startswith("A:")}
+    result = thermal.solve_steady_state(
+        opencr.Conditions(2.0, 1e20, densities={"H(n=1)": 1e18}, escape=lines)
+    )
+    ratio = result.population("H(n=30)") / result.population("H(n=29)")
+    weights = (2 * 30**2) / (2 * 29**2)
+    gap = 13.598 * (1 / 29**2 - 1 / 30**2)
+    assert ratio == pytest.approx(weights * np.exp(-gap / 2.0), rel=1e-6)
