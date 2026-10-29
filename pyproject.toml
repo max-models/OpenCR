@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "Collisional-radiative models of low-temperature plasmas: reaction networks with provenance, steady and time-dependent populations, effective rates and emission."
 readme = "README.md"
 keywords = [ "atomic data", "collisional-radiative", "effective rates", "hydrogen", "plasma", "spectroscopy" ]
-license = { file = "LICENSE.txt" }
 authors = [ { name = "Max" } ]
 requires-python = ">=3.10"
 classifiers = [
