@@ -34,13 +34,14 @@ for a non-Maxwellian EEDF). ``dE`` and the weights come from the states.
 trapping): the conditions' value for the reaction if given, else the
 reaction's own.
 
-**Backends.** Every evaluator is written against an array namespace ``xp``
-(NumPy by default, cunumpy for the accelerated backend of
-:mod:`opencr.backends`): :meth:`RateEvaluator.coefficients_batched` evaluates
-all reactions at many electron temperatures at once on that namespace. A
-:class:`~opencr.core.rates.Function` rate runs on the host (its temperatures
-are copied there and the result back); a non-Maxwellian EEDF is integrated on
-the host by plasmacoll and is not batched.
+**Arrays.** Every evaluator is written against cunumpy's ``xp`` (NumPy or
+CuPy for the whole process, see :mod:`opencr.backends`):
+:meth:`RateEvaluator.coefficients_batched` evaluates all reactions at many
+electron temperatures at once there, :meth:`RateEvaluator.coefficients` one
+set of conditions, as floats on the host. A :class:`~opencr.core.rates.Function`
+rate runs on the host (its temperatures are copied there and the result
+back); a non-Maxwellian EEDF is integrated on the host by plasmacoll and is
+not batched.
 """
 
 from __future__ import annotations
@@ -48,7 +49,6 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
-from types import ModuleType
 from typing import Any
 
 import cunumpy as xp
@@ -129,11 +129,8 @@ class MaxwellianIntegral:
             c2=slope,
         )
 
-    def log_scaled(self, temperature: Any, xp: ModuleType = np) -> Any:
-        """Return ``log(k exp(E_th / T))`` with ``k`` in m^3/s at ``temperature`` (eV).
-
-        ``xp`` is the array namespace to evaluate on (NumPy or cunumpy).
-        """
+    def log_scaled(self, temperature: Any) -> Any:
+        """Return ``log(k exp(E_th / T))`` with ``k`` in m^3/s at ``temperature`` (eV), on ``xp``."""
         t = xp.asarray(temperature, dtype=float)[..., None]
         y = xp.asarray(self.y)
         c0, c1, c2 = (xp.asarray(c) for c in (self.c0, self.c1, self.c2))
@@ -182,7 +179,7 @@ class _Prepared:
     """How one reaction's coefficient is computed."""
 
     depends_on: str
-    log_scaled: Callable[[Any, ModuleType], Any]
+    log_scaled: Callable[[Any], Any]
     threshold: float
     electron_cross_section: CrossSection | None = None
     #: for inverses: (forward index, log weight ratio, energy gap, extra electrons)
@@ -209,7 +206,7 @@ class RateEvaluator:
 
             log_a = math.log(a) if a > 0.0 else -math.inf
 
-            def arrhenius(t: Any, xp: ModuleType = np) -> Any:
+            def arrhenius(t: Any) -> Any:
                 return log_a + b * xp.log(t)
 
             return _Prepared(rate.depends_on, arrhenius, c)
@@ -220,7 +217,7 @@ class RateEvaluator:
                     rate.temperatures
                 )
 
-            def tabulated(t: Any, xp: ModuleType = np) -> Any:
+            def tabulated(t: Any) -> Any:
                 clipped = xp.clip(xp.log(t), float(log_t[0]), float(log_t[-1]))
                 return xp.interp(clipped, xp.asarray(log_t), xp.asarray(log_k))
 
@@ -230,7 +227,7 @@ class RateEvaluator:
 
             log_value = math.log(value) if value > 0.0 else -math.inf
 
-            def constant(t: Any, xp: ModuleType = np) -> Any:
+            def constant(t: Any) -> Any:
                 return xp.full(t.shape, log_value)
 
             return _Prepared(rate.depends_on, constant, 0.0)
@@ -238,7 +235,7 @@ class RateEvaluator:
             function, threshold = rate.function, rate.threshold
             assert function is not None
 
-            def evaluated(t: Any, xp: ModuleType = np) -> Any:
+            def evaluated(t: Any) -> Any:
                 # the function is host code: cross the boundary and back
                 k = np.asarray(function(_host(t)), dtype=float)
                 with np.errstate(divide="ignore"):
@@ -309,8 +306,8 @@ class RateEvaluator:
         """The reaction names, in the order of the coefficient vector."""
         return tuple(r.name for r in self.network.reactions)
 
-    def _log_k(self, prepared: _Prepared, t: Any, xp: ModuleType = np) -> Any:
-        log_k = prepared.log_scaled(t, xp)
+    def _log_k(self, prepared: _Prepared, t: Any) -> Any:
+        log_k = prepared.log_scaled(t)
         if prepared.inverse is None:
             return log_k - prepared.threshold / t
         _, log_weights, gap, extra = prepared.inverse
@@ -345,24 +342,19 @@ class RateEvaluator:
                     prepared.electron_cross_section, tabulated.energy, tabulated.values
                 )
                 continue
-            t = np.asarray(temperatures[prepared.depends_on], dtype=float)
+            t = xp.asarray(temperatures[prepared.depends_on], dtype=float)
             log_k = float(self._log_k(prepared, t))
             k[i] = 0.0 if log_k < _LOG_TINY else math.exp(min(log_k, 700.0))
         return self._escape(k, conditions)
 
     @sp.profile("opencr.rate_coefficients_batched", tags=PROFILE_TAGS)
-    def coefficients_batched(
-        self,
-        conditions: Conditions,
-        electron_temperatures: Any,
-        xp: ModuleType = np,
-    ) -> Any:
+    def coefficients_batched(self, conditions: Conditions, electron_temperatures: Any):
         """Return ``k`` of shape ``(len(electron_temperatures), n_reactions)`` on ``xp``.
 
         Maxwellian electrons at each temperature; everything else (the heavy
-        temperatures, the escape factors) from ``conditions``. The result is
-        an array of the namespace ``xp`` (NumPy or cunumpy); the input is
-        copied to it.
+        temperatures, the escape factors) from ``conditions``. The input is
+        copied to ``xp`` and the result stays there (``xp.to_numpy`` brings it
+        back).
 
         Raises:
             ValueError: A non-Maxwellian EEDF (integrated on the host only), or
@@ -383,7 +375,7 @@ class RateEvaluator:
                 t = te
             else:
                 t = xp.full(te.shape, temperatures[prepared.depends_on])
-            log_k = self._log_k(prepared, t, xp)
+            log_k = self._log_k(prepared, t)
             columns.append(
                 xp.where(log_k < _LOG_TINY, 0.0, xp.exp(xp.minimum(log_k, 700.0)))
             )
@@ -393,8 +385,5 @@ class RateEvaluator:
     def coefficients_scan(
         self, conditions: Conditions, electron_temperatures: np.ndarray
     ) -> np.ndarray:
-        """Return ``k`` of shape ``(len(electron_temperatures), n_reactions)`` (NumPy).
-
-        :meth:`coefficients_batched` on NumPy.
-        """
-        return np.asarray(self.coefficients_batched(conditions, electron_temperatures))
+        """Return ``k`` of shape ``(len(electron_temperatures), n_reactions)`` on the host."""
+        return _host(self.coefficients_batched(conditions, electron_temperatures))

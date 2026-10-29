@@ -1,4 +1,4 @@
-"""The quasi-static reduction of many conditions at once, on a backend.
+"""The quasi-static reduction of many conditions at once, on cunumpy.
 
 For a network that is linear in its states (one heavy reactant per reaction)
 the rate matrix of one set of conditions is
@@ -12,8 +12,8 @@ and densities the matrices are a dense ``(B, n, n)`` array assembled in one
 ``einsum``, and the quasi-static reduction of :mod:`opencr.kinetics.effective`
 is a batched dense solve, ``C = -M_QQ^-1 M_QP``, ``M_eff = M_PP + M_PQ C``.
 Every point is independent, so the batch is the natural unit of work for a
-GPU; the result is checked against the per-point sparse reference solves
-in the tests.
+GPU (``cunumpy.set_backend("cupy")``); the result comes back to the host and
+is checked against the per-point sparse reference solves in the tests.
 
 The drivers are the states with a density in the conditions, or the model's
 drivers when the conditions give none; the driver densities do not enter the
@@ -26,12 +26,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import cunumpy as xp
 import numpy as np
 import scope_profiler as sp
 import xarray as xr
 
 from opencr._profiling import PROFILE_TAGS
-from opencr.backends import Backend, get_backend
+from opencr.backends import device
 from opencr.core.conditions import Conditions
 from opencr.kinetics.effective import SingularSystemError
 from opencr.kinetics.system import PopulationSystem
@@ -115,16 +116,14 @@ class BatchedQuasiStatic:
 
     Args:
         model: The model; its network must be linear in the states.
-        backend: ``"numpy"``, ``"cunumpy"`` or a :class:`~opencr.backends.Backend`.
 
     Raises:
         ValueError: A reaction has two heavy reactants.
     """
 
-    def __init__(self, model: Model, backend: str | Backend = "numpy") -> None:
-        """Prepare the structure arrays."""
+    def __init__(self, model: Model) -> None:
+        """Prepare the structure arrays on ``xp``."""
         self.model = model
-        self.backend = get_backend(backend)
         network = model.network
         template = PopulationSystem(
             network,
@@ -142,7 +141,6 @@ class BatchedQuasiStatic:
         for r, i in enumerate(template._slots[:, 0]):
             if i >= 0:
                 selector[r, i] = 1.0
-        xp = self.backend
         self._stoichiometry = xp.asarray(template.stoichiometry.toarray())
         self._selector = xp.asarray(selector)
         self._electron_order = xp.asarray(template._electron_order)
@@ -176,11 +174,10 @@ class BatchedQuasiStatic:
         electron_temperatures: Any,
         electron_densities: Any,
     ) -> tuple[Any, Any]:
-        """Return ``k`` of shape ``(B, n_reactions)`` and ``M`` of shape ``(B, n, n)`` on the backend."""
-        xp = self.backend.xp
-        te = self.backend.asarray(np.ravel(electron_temperatures))
-        ne = self.backend.asarray(np.ravel(electron_densities))
-        k = self.model.evaluator.coefficients_batched(conditions, te, xp)
+        """Return ``k`` of shape ``(B, n_reactions)`` and ``M`` of shape ``(B, n, n)`` on ``xp``."""
+        te = xp.asarray(np.ravel(electron_temperatures), dtype=float)
+        ne = xp.asarray(np.ravel(electron_densities), dtype=float)
+        k = self.model.evaluator.coefficients_batched(conditions, te)
         weighted = k * ne[:, None] ** self._electron_order
         matrix = xp.einsum(
             "ir,br,rj->bij", self._stoichiometry, weighted, self._selector
@@ -215,12 +212,11 @@ class BatchedQuasiStatic:
         p = [index[d] for d in drivers]
         q = [index[s] for s in excited]
         k, matrix = self.matrices(conditions, te, ne)
-        xp = self.backend.xp
         m_qq = matrix[:, q][:, :, q]
         m_qp = matrix[:, q][:, :, p]
         m_pq = matrix[:, p][:, :, q]
         m_pp = matrix[:, p][:, :, p]
-        diagonal = self.backend.to_numpy(xp.diagonal(m_qq, axis1=1, axis2=2))
+        diagonal = xp.to_numpy(xp.diagonal(m_qq, axis1=1, axis2=2))
         lossless = [excited[i] for i in np.flatnonzero(np.any(diagonal == 0.0, axis=0))]
         if lossless:
             raise SingularSystemError(
@@ -239,8 +235,8 @@ class BatchedQuasiStatic:
         else:
             coefficients = xp.zeros((te.size, 0, len(p)))
             effective = m_pp
-        c = self.backend.to_numpy(coefficients)
-        k_host = self.backend.to_numpy(k)
+        c = np.asarray(xp.to_numpy(coefficients), dtype=float)
+        k_host = np.asarray(xp.to_numpy(k), dtype=float)
         pec = np.zeros((te.size, len(self._lines), len(drivers)))
         for j, (upper, r) in enumerate(
             zip(self._line_upper, self._line_index, strict=True)
@@ -255,7 +251,7 @@ class BatchedQuasiStatic:
             drivers,
             excited,
             c,
-            self.backend.to_numpy(effective),
+            np.asarray(xp.to_numpy(effective), dtype=float),
             k_host,
             self._lines,
             pec,
@@ -267,7 +263,6 @@ def batched_scan(
     conditions: Conditions,
     electron_temperature: Sequence[float],
     electron_density: Sequence[float],
-    backend: str | Backend = "numpy",
 ) -> xr.Dataset:
     """Return the effective rates and PECs on a grid of ``T_e`` and ``n_e``.
 
@@ -275,12 +270,12 @@ def batched_scan(
     Maxwellian plasmas: the same variables (``effective_rate`` over
     ``(electron_temperature, electron_density, target, source)``,
     ``pec`` over ``(..., line, driver)`` and ``population_coefficient`` over
-    ``(..., state, driver)``), computed in one batch on ``backend``.
+    ``(..., state, driver)``), computed in one batch on cunumpy's ``xp``.
     """
     te = np.asarray(electron_temperature, dtype=float)
     ne = np.asarray(electron_density, dtype=float)
     grid_t, grid_n = np.meshgrid(te, ne, indexing="ij")
-    reduction = BatchedQuasiStatic(model, backend).run(conditions, grid_t, grid_n)
+    reduction = BatchedQuasiStatic(model).run(conditions, grid_t, grid_n)
     data = reduction.to_dataset()
     shape = (te.size, ne.size)
     out = xr.Dataset(
@@ -300,7 +295,7 @@ def batched_scan(
         attrs={
             "model": model.name,
             "solve": "quasi-static",
-            "backend": get_backend(backend).name,
+            "device": device(),
         },
     )
     return out

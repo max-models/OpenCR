@@ -1,4 +1,4 @@
-"""The batched backends against the NumPy/SciPy reference."""
+"""The batched cunumpy path against the per-point NumPy/SciPy reference."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 import opencr
-from opencr.backends import BACKENDS, CUNUMPY, NUMPY, Backend, get_backend
+from opencr.backends import device
 from opencr.backends.batched import BatchedQuasiStatic, batched_scan
 from opencr.core import (
     ELECTRON_STATE,
@@ -31,19 +31,11 @@ def model() -> opencr.Model:
     return opencr.load_model("hydrogen/atomic/basic", n_max=8)
 
 
-def test_backends() -> None:
-    assert get_backend("numpy") is NUMPY and get_backend(CUNUMPY) is CUNUMPY
-    assert set(BACKENDS) == {"numpy", "cunumpy"}
-    assert NUMPY.device == "cpu" and repr(NUMPY) == "Backend('numpy', cpu)"
-    assert CUNUMPY.device in ("cpu", "gpu")
-    with pytest.raises(ValueError, match="backend"):
-        get_backend("torch")
-    assert isinstance(CUNUMPY.to_numpy(CUNUMPY.asarray([1.0])), np.ndarray)
-    assert isinstance(Backend("numpy", np).to_numpy([1, 2]), np.ndarray)
+def test_device() -> None:
+    assert device() == ("gpu" if cunumpy.get_backend() == "cupy" else "cpu")
 
 
-@pytest.mark.parametrize("backend", ["numpy", "cunumpy"])
-def test_batched_rates_match_the_per_point_evaluation(backend) -> None:
+def test_batched_rates_match_the_per_point_evaluation() -> None:
     (g, x), ion = hydrogen_levels(2)
     network = ReactionNetwork(
         [g, x, ion],
@@ -89,9 +81,8 @@ def test_batched_rates_match_the_per_point_evaluation(backend) -> None:
     model = opencr.Model(network)
     conditions = Conditions(1.0, 1e18, escape={"rad": 0.25})
     temperatures = np.geomspace(0.3, 300.0, 7)
-    xp = get_backend(backend).xp
-    batched = model.evaluator.coefficients_batched(conditions, temperatures, xp)
-    k = get_backend(backend).to_numpy(batched)
+    batched = model.evaluator.coefficients_batched(conditions, temperatures)
+    k = np.asarray(cunumpy.to_numpy(batched))
     assert k.shape == (7, 5)
     for i, t in enumerate(temperatures):
         point = model.evaluator.coefficients(conditions.replace(electron_temperature=t))
@@ -101,18 +92,17 @@ def test_batched_rates_match_the_per_point_evaluation(backend) -> None:
         k
     )
     with pytest.raises(ValueError, match="> 0"):
-        model.evaluator.coefficients_batched(conditions, [1.0, -1.0], xp)
+        model.evaluator.coefficients_batched(conditions, [1.0, -1.0])
     eedf = Conditions.from_eedf(Generalized(2.0, 2.0))
     with pytest.raises(ValueError, match="Maxwellian"):
-        model.evaluator.coefficients_batched(eedf, temperatures, xp)
+        model.evaluator.coefficients_batched(eedf, temperatures)
 
 
-@pytest.mark.parametrize("backend", ["numpy", "cunumpy"])
-def test_batched_reduction_matches_the_reference(model, backend) -> None:
+def test_batched_reduction_matches_the_reference(model) -> None:
     temperatures = np.array([1.0, 5.0, 30.0])
     densities = np.array([1e17, 1e20])
-    data = batched_scan(model, Conditions(1.0, 1e18), temperatures, densities, backend)
-    assert data.attrs["backend"] == backend
+    data = batched_scan(model, Conditions(1.0, 1e18), temperatures, densities)
+    assert data.attrs["device"] == device()
     assert data["effective_rate"].dims == (
         "electron_temperature",
         "electron_density",
@@ -192,10 +182,6 @@ def test_singular_matrix_is_reported(model, monkeypatch) -> None:
     def failing(*args, **kwargs):
         raise np.linalg.LinAlgError("singular")
 
-    monkeypatch.setattr(np.linalg, "solve", failing)
+    monkeypatch.setattr(cunumpy.linalg, "solve", failing)
     with pytest.raises(SingularSystemError, match="singular"):
-        BatchedQuasiStatic(model, NUMPY).run(Conditions(1.0, 1e18), 1.0, 1e18)
-
-
-def test_cunumpy_namespace_is_used() -> None:
-    assert CUNUMPY.xp is cunumpy
+        BatchedQuasiStatic(model).run(Conditions(1.0, 1e18), 1.0, 1e18)
