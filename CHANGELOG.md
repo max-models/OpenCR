@@ -7,6 +7,26 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Molecular hydrogen: `hydrogen/molecular/basic` (H2(X, v=0..14), B, C, EF, a, d, H, H+, H2+;
+  vibrational and electronic excitation, dissociation, ionization, radiative decays) and
+  `hydrogen/molecular/ions` (dissociative attachment per level, H-, H3+ and their chemistry,
+  optional wall losses).
+- `argon/metastable`: Ar with lumped metastable and resonant 4s levels and Ar+ (the global-model
+  set of Ashida, Lee and Lieberman), optionally a sputtered Cu or Ti with Lotz ionization and
+  Penning ionization.
+- Atomic hydrogen up to n = 60, with the Vriens-Smeets rates above n = 24.
+- Named quantities of a steady state (`opencr.analysis.quantities`), with the electron cooling
+  coefficient per driver.
+- `opencr.inference`: sensitivities to the rate data, linear and Monte Carlo uncertainty
+  propagation from the provenance, and inverse modelling (grid posterior and least-squares fit)
+  from measured quantities such as line ratios.
+- `opencr.ml`: datasets with provenance and reproducible splits, a scikit-learn Gaussian-process
+  surrogate with held-out errors, speed-up and an out-of-domain flag.
+- `opencr.tables`: effective-rate tables on a T_e x n_e grid with log interpolation and netCDF,
+  for wellbalanced, beamtracer and freeofcharge.
+- `Model.solve_steady_state(..., factors=...)` and `Model.scaled_rates`: rate coefficients scaled
+  by reaction, detailed-balance inverses with their forward reaction.
+
 - The OpenCR package layout: `core`, `data`, `kinetics`, `solvers`, `backends`, `analysis`,
   `models`, `ml` and `inference`, with the optional extras `cunumpy`, `jax` and `ml`; depends on
   plasmacoll, SciPy and xarray. The template's greeting, sine-wave example and example
@@ -51,6 +71,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The quasi-static reduction accepts reactions with a prescribed partner (e.g. Penning
+  ionization of a prescribed metal, H2+ + H2(v)): they are linear in the quasi-static reactant.
 - `__version__` is read from the installed package metadata (`importlib.metadata`), not hardcoded,
   so it can no longer disagree with `pyproject.toml` (a hardcoded one went stale in releases).
 

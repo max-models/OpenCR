@@ -29,6 +29,9 @@ export default defineDocs({
 			items: [
 				{ label: 'The CR model', slug: 'guides/model' },
 				{ label: 'Atomic hydrogen', slug: 'guides/atomic-hydrogen' },
+				{ label: 'Molecular hydrogen', slug: 'guides/molecular-hydrogen' },
+				{ label: 'Argon and metals', slug: 'guides/argon-and-metals' },
+				{ label: 'Sensitivities and inference', slug: 'guides/inference' },
 				{ label: 'Data and provenance', slug: 'guides/data' },
 				{ label: 'Solvers and troubleshooting', slug: 'guides/solvers' },
 				{ label: 'Verification', slug: 'guides/verification' },

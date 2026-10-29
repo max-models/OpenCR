@@ -47,10 +47,11 @@ optional-dependencies.docs = [
   "nbclient>=0.11",
   "nbformat>=5.11.1",
   "plasma-plots",
+  "scikit-learn",
 ]
 optional-dependencies.jax = [ "jax" ]
 optional-dependencies.ml = [ "scikit-learn" ]
-optional-dependencies.test = [ "jax", "pytest", "pytest-cov" ]
+optional-dependencies.test = [ "jax", "pytest", "pytest-cov", "scikit-learn" ]
 urls.Source = "https://github.com/max-models/OpenCR"
 scripts.opencr = "opencr.cli:main"
 
@@ -95,5 +96,5 @@ report.show_missing = true
 # one entry per max-models package in [project], spelled exactly like this in every repo:
 cunumpy = { git = "https://github.com/max-models/cunumpy", branch = "devel" }
 plasma-plots = { git = "https://github.com/max-models/plasma-plots", branch = "devel" }
-plasmacoll = { git = "https://github.com/max-models/plasmacoll", branch = "devel" }
+plasmacoll = { git = "https://github.com/max-models/plasmacoll", branch = "h2-highn" }
 scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }

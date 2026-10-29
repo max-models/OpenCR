@@ -31,13 +31,16 @@ plasma.
 
 ## Limits
 
-- $n_\mathrm{max} \le 24$: Johnson's excitation formula turns negative for $n \to n+1$ above
-  $n = 24$. Effective recombination at low density depends on $n_\mathrm{max}$ (the levels
+- $n_\mathrm{max} \le 60$. Johnson's excitation formula turns negative for $n \to n+1$ above
+  $n = 24$, so the excitations involving a level above 24 use the Maxwellian rate coefficients of
+  Vriens and Smeets (1980) (`plasmacoll.atomic_hydrogen.vriens_smeets_excitation_rate`), within a
+  factor 2 of Johnson's below 24; with a non-Maxwellian EEDF they are evaluated at its effective
+  temperature. Effective recombination at low density depends on $n_\mathrm{max}$ (the levels
   above it are missing, not extrapolated).
 - The $l$ sub-states are assumed statistically populated. This needs fast $l$-mixing, which
   at low density fails for $n = 2$ (the metastable 2s).
 - Heavy-particle collisions with excited atoms (proton impact, which matters for high $n$ at
-  high density) are not included, nor is molecular hydrogen: H₂, H₂⁺ and H⁻ are later models.
+  high density) are not included. Molecular hydrogen is in [Molecular hydrogen](/OpenCR/guides/molecular-hydrogen/).
 - The cross sections are uncertain by 10–20% from the ground state and 20–50% near threshold
   between excited states (the report's estimates); the effective coefficients inherit that.
 

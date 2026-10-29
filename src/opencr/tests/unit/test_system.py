@@ -187,12 +187,34 @@ def test_quasi_static_errors() -> None:
         )
     network3 = nonlinear()
     k3 = np.array([r.rate.value for r in network3.reactions])
-    with pytest.raises(ValueError, match="one heavy reactant"):
+    with pytest.raises(ValueError, match="one quasi-static reactant"):
         quasi_static(network3, k3, Conditions(2.0, 1e19, densities={"H(n=1)": 1.0}))
     only_drivers = quasi_static(
         network, k, Conditions(2.0, 1e19, densities={"H(n=1)": 1.0, "H(n=2)": 1.0})
     )
     assert only_drivers.coefficients.shape == (0, 2)
+
+
+def test_quasi_static_with_a_driver_partner() -> None:
+    # mn (ION + HM) is linear in HM once ION is a driver: the reduction agrees
+    # with the steady state at the given driver densities
+    from opencr.model import Model
+
+    network = nonlinear()
+    conditions = Conditions(2.0, 1e19, densities={"H(n=1)": 1e19, "H+": 1e17})
+    reduction = Model(network).effective_rates(conditions)
+    result = Model(network).solve_steady_state(conditions)
+    populations = reduction.populations(dict(conditions.densities))
+    for name, value in zip(reduction.excited, populations, strict=True):
+        assert value == pytest.approx(result.population(name), rel=1e-9)
+    # the drivers' own rates: H+ is lost by mutual neutralization with H-
+    # and by recombination, gained by ionization
+    rate = result.fluxes
+    gain = rate["ion"] - rate["3b"] - rate["mn"]
+    n_p = np.array([conditions.densities[d] for d in reduction.drivers])
+    assert (reduction.effective @ n_p)[reduction.drivers.index("H+")] == pytest.approx(
+        gain, rel=1e-9
+    )
 
 
 def test_closed_cycle_without_path_is_singular() -> None:

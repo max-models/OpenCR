@@ -18,13 +18,14 @@ conditions), builds the population equations and solves them (see the guide
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
 
 from opencr.core.conditions import Conditions
 from opencr.core.network import ReactionNetwork
+from opencr.core.rates import DetailedBalance
 from opencr.kinetics.effective import QuasiStatic, quasi_static
 from opencr.kinetics.rates import RateEvaluator
 from opencr.kinetics.system import PopulationSystem
@@ -95,15 +96,38 @@ class Model:
         ]
         return PopulationSystem(self.network, rates, conditions, evolving)
 
-    def _solve_once(self, conditions, mode, start, rtol):
+    def scaled_rates(
+        self, conditions: Conditions, factors: Mapping[str, float] | None = None
+    ) -> np.ndarray:
+        """Return the rate coefficients with some multiplied by ``factors`` (by name).
+
+        A detailed-balance inverse takes the factor of its forward reaction
+        (unless it has its own), so the scaled network keeps detailed balance:
+        this is what sensitivities and uncertainty propagation perturb.
+        """
+        rates = self.evaluator.coefficients(conditions)
+        if not factors:
+            return rates
+        unknown = set(factors) - set(self.evaluator.names)
+        if unknown:
+            raise KeyError(f"unknown reactions in factors: {sorted(unknown)}")
+        scale = np.ones(len(rates))
+        for i, reaction in enumerate(self.network.reactions):
+            name = reaction.name
+            if name not in factors and isinstance(reaction.rate, DetailedBalance):
+                name = reaction.rate.forward
+            scale[i] = factors.get(name, 1.0)
+        return rates * scale
+
+    def _solve_once(self, conditions, mode, start, rtol, factors=None):
         from opencr.analysis.results import Result
 
-        rates = self.evaluator.coefficients(conditions)
+        rates = self.scaled_rates(conditions, factors)
         system = self.system(conditions, rates)
         n, report = solve_steady(system, conditions.totals, start, mode, rtol)
         return Result(self, conditions, rates, system, n, report)
 
-    def _solve_trapped(self, conditions, mode, start, rtol):
+    def _solve_trapped(self, conditions, mode, start, rtol, factors=None):
         """Iterate the solve and the escape factors to self-consistency."""
         from opencr.kinetics.radiation import escape_factors
         from opencr.solvers.diagnostics import ConvergenceError
@@ -116,7 +140,7 @@ class Model:
         damping = 1.0
         for iteration in range(1, trapping.max_iterations + 1):
             point = conditions.replace(escape={**current, **given})
-            result = self._solve_once(point, mode, start, rtol)
+            result = self._solve_once(point, mode, start, rtol, factors)
             computed = escape_factors(
                 self.network, result.populations, trapping, point.gas_temperature
             )
@@ -151,6 +175,7 @@ class Model:
         mode: str = "quasi-static",
         initial: dict[str, float] | None = None,
         rtol: float = 1.0e-9,
+        factors: Mapping[str, float] | None = None,
     ):
         """Return the steady state as a :class:`~opencr.analysis.results.Result`.
 
@@ -160,6 +185,8 @@ class Model:
             mode: One of :data:`MODES`.
             initial: Starting densities by state name for a nonlinear solve.
             rtol: The tolerance of the relative residual.
+            factors: Multiply the rate coefficients of these reactions (by
+                name) by these factors (see :meth:`scaled_rates`).
         """
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
@@ -177,8 +204,8 @@ class Model:
                  if n not in conditions.densities]
             )  # fmt: skip
         if conditions.trapping is None:
-            return self._solve_once(conditions, mode, start, rtol)
-        return self._solve_trapped(conditions, mode, start, rtol)
+            return self._solve_once(conditions, mode, start, rtol, factors)
+        return self._solve_trapped(conditions, mode, start, rtol, factors)
 
     def solve_transient(
         self,
