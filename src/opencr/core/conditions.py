@@ -8,6 +8,12 @@ closed steady state, the heavy-particle temperatures and the radiation
 trapping (escape factors given per line, or a `RadiationTrapping`
 configuration they are computed from). See the guide "The CR model" for how
 a solve uses them.
+
+Every physical setting takes an astropy Quantity (``2 * u.eV``, ``1e12 *
+u.cm**-3``), a string astropy reads (``"300 K"``, as in a configuration file)
+or a bare number in its documented unit (SI, with temperatures as ``kT`` in
+eV), and is stored as a float in that unit; temperatures in K are converted
+to eV (see `plasmacoll.units`).
 """
 
 from __future__ import annotations
@@ -17,6 +23,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
+
+from plasmacoll.units import convert_units, unit_field
 
 __all__ = ["ESCAPE_MODELS", "Conditions", "RadiationTrapping"]
 
@@ -28,6 +36,8 @@ ESCAPE_MODELS = ("mewe", "holstein-slab", "holstein-cylinder")
 class RadiationTrapping:
     """The escape-factor configuration of a solve (see `opencr.kinetics.radiation`).
 
+    The length takes a quantity (see the module docstring).
+
     Attributes:
         length: The absorption length ``L`` in m (the distance to the wall).
         model: One of `ESCAPE_MODELS`.
@@ -38,14 +48,15 @@ class RadiationTrapping:
         max_iterations: The limit of that iteration.
     """
 
-    length: float
+    length: float = unit_field("m")
     model: str = "mewe"
     lines: tuple[str, ...] | None = None
     tolerance: float = 1.0e-6
     max_iterations: int = 100
 
     def __post_init__(self) -> None:
-        """Check the length and the model."""
+        """Convert the length to m and check it and the model."""
+        convert_units(self)
         if not self.length > 0.0:
             raise ValueError("length must be > 0 (m)")
         if self.model not in ESCAPE_MODELS:
@@ -65,6 +76,9 @@ class RadiationTrapping:
 @dataclass(frozen=True)
 class Conditions:
     """Plasma conditions, SI with temperatures in eV.
+
+    The temperatures and densities take quantities (see the module
+    docstring): ``Conditions("300 K", 1e12 * u.cm**-3)``.
 
     Attributes:
         electron_temperature: ``kT_e`` in eV. With a non-Maxwellian ``eedf`` it is
@@ -90,18 +104,19 @@ class Conditions:
             for an optically thin plasma (apart from ``escape``).
     """
 
-    electron_temperature: float
-    electron_density: float | None = None
+    electron_temperature: float = unit_field("eV")
+    electron_density: float | None = unit_field("m-3", None)
     eedf: Any = None
-    densities: Mapping[str, float] = field(default_factory=dict)
-    totals: Mapping[str, float] = field(default_factory=dict)
-    ion_temperature: float | None = None
-    gas_temperature: float = 0.026
+    densities: Mapping[str, float] = unit_field("m-3", default_factory=dict)
+    totals: Mapping[str, float] = unit_field("m-3", default_factory=dict)
+    ion_temperature: float | None = unit_field("eV", None)
+    gas_temperature: float = unit_field("eV", 0.026)
     escape: Mapping[str, float] = field(default_factory=dict)
     trapping: RadiationTrapping | None = None
 
     def __post_init__(self) -> None:
-        """Check the values and freeze the mappings."""
+        """Convert the units, check the values and freeze the mappings."""
+        convert_units(self)
         if not self.electron_temperature > 0.0:
             raise ValueError("electron_temperature must be > 0 (eV)")
         if self.electron_density is not None and not self.electron_density > 0.0:

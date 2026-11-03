@@ -3,7 +3,8 @@
 ``opencr list`` prints the models; ``opencr manifest <name> [--n-max N]``
 prints a model's manifest (states, reactions, sources and assumptions) as
 JSON; ``opencr effective <name> --te T --ne N`` prints the effective rate
-coefficients between the drivers.
+coefficients between the drivers (``--te`` in eV and ``--ne`` in m^-3, or
+quantities such as ``--te "30000 K" --ne "1e12 cm-3"``).
 """
 
 from __future__ import annotations
@@ -43,10 +44,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     effective.add_argument("model")
     effective.add_argument(
-        "--te", type=float, required=True, help="electron temperature in eV"
+        "--te",
+        required=True,
+        help="electron temperature in eV, or a quantity such as '30000 K'",
     )
     effective.add_argument(
-        "--ne", type=float, required=True, help="electron density in m^-3"
+        "--ne",
+        required=True,
+        help="electron density in m^-3, or a quantity such as '1e12 cm-3'",
     )
     effective.add_argument("--n-max", type=int, default=None)
     args = parser.parse_args(argv)

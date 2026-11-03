@@ -33,6 +33,7 @@ import numpy as np
 import scope_profiler as sp
 import xarray as xr
 from methodcard import method
+from plasmacoll.units import to_array
 
 from opencr._profiling import PROFILE_TAGS
 from opencr.backends import device
@@ -318,9 +319,11 @@ def batched_scan(
     ``(electron_temperature, electron_density, target, source)``,
     ``pec`` over ``(..., line, driver)`` and ``population_coefficient`` over
     ``(..., state, driver)``), computed in one batch on cunumpy's ``xp``.
+    The temperatures are in eV and the densities in m^-3, or quantities.
     """
-    te = np.asarray(electron_temperature, dtype=float)
-    ne = np.asarray(electron_density, dtype=float)
+    te = to_array(electron_temperature, "eV", "electron_temperature")
+    ne = to_array(electron_density, "m-3", "electron_density")
+    te, ne = np.asarray(te, dtype=float), np.asarray(ne, dtype=float)
     grid_t, grid_n = np.meshgrid(te, ne, indexing="ij")
     reduction = BatchedQuasiStatic(model).run(conditions, grid_t, grid_n)
     data = reduction.to_dataset()

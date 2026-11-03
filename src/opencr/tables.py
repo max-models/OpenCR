@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 from methodcard import ConvergenceProblem, method
+from plasmacoll.units import to_array
 
 from opencr.analysis.quantities import check_quantity, quantities
 from opencr.analysis.results import _opencr_version
@@ -177,14 +178,14 @@ def effective_rate_table(
         conditions: The conditions with the driver densities (the quasi-static
             quantities per driver do not depend on them for a linear network).
         outputs: The quantities.
-        temperatures: The electron temperatures in eV, increasing.
-        densities: The electron densities in m^-3, increasing.
+        temperatures: The electron temperatures in eV (or quantities), increasing.
+        densities: The electron densities in m^-3 (or quantities), increasing.
         mode: The steady-state mode.
     """
     for name in outputs:
         check_quantity(model, name)
-    t = np.asarray(temperatures, dtype=float)
-    n = np.asarray(densities, dtype=float)
+    t = np.asarray(to_array(temperatures, "eV", "temperatures"), dtype=float)
+    n = np.asarray(to_array(densities, "m-3", "densities"), dtype=float)
     values = np.zeros((len(outputs), t.size, n.size))
     for i, temperature in enumerate(t):
         for j, density in enumerate(n):

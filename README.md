@@ -38,6 +38,22 @@ result.emission().sel(line="A:3-2")  # H-alpha
 result.reduction.effective_rate("H(n=1)", "H+")  # S_CR, m^3/s
 ```
 
+Every physical setting (temperatures, densities, lengths, times,
+energies, masses) also takes an [astropy](https://www.astropy.org/)
+quantity or a string such as `"300 K"`, as in a configuration file; it
+is converted once to the documented unit (SI, temperatures as kT in eV),
+and a bare number keeps meaning that unit:
+
+``` python
+import astropy.units as u
+
+conditions = opencr.Conditions(
+    electron_temperature="23200 K",  # 2.0 eV
+    electron_density=1e12 * u.cm**-3,  # 1e18 m^-3
+    densities={"H(n=1)": "1e13 cm-3", "H+": 1e18},  # a bare number is in m^-3
+)
+```
+
 The physics, the closures and the units are in [The CR
 model](https://max-models.github.io/OpenCR/guides/model/); the
 acceptance criteria of the atomic hydrogen model in

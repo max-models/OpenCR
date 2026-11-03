@@ -21,7 +21,7 @@ import xarray as xr
 
 from opencr.analysis.quantities import check_quantity, quantities
 from opencr.analysis.results import _opencr_version
-from opencr.analysis.scan import _apply
+from opencr.analysis.scan import _apply, _fields_in_units
 from opencr.core.conditions import Conditions
 from opencr.model import Model
 
@@ -74,7 +74,8 @@ def generate_dataset(
         model: The model.
         conditions: The conditions the sampled fields are set in.
         bounds: The range of each sampled field (as for `opencr.scan`:
-            ``electron_temperature``, ``electron_density``, ``density:<state>``).
+            ``electron_temperature``, ``electron_density``, ``density:<state>``),
+            in eV or m^-3, or quantities.
         outputs: The quantities to store.
         samples: The number of samples.
         seed: The seed of the sampling; the split uses ``seed + 1``.
@@ -89,6 +90,7 @@ def generate_dataset(
     """
     for name in outputs:
         check_quantity(model, name)
+    bounds = _fields_in_units(bounds)
     names = list(bounds)
     low = np.log([bounds[n][0] for n in names])
     high = np.log([bounds[n][1] for n in names])

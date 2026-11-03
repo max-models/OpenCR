@@ -32,6 +32,7 @@ from collections.abc import Mapping
 
 from plasmacoll import metal_ionization_cross_section
 from plasmacoll.metals import METAL_OUTER_SUBSHELLS
+from plasmacoll.units import to_unit
 
 from opencr.core.network import ReactionNetwork
 from opencr.core.rates import Arrhenius, Constant, CrossSectionRate
@@ -139,7 +140,13 @@ def argon_network(
         pooling: Include metastable pooling ``Ar(m) + Ar(m) -> Ar+ + Ar + e``.
         wall_loss: Loss frequencies in s^-1 by state name.
         max_energy: The last tabulated cross-section energy in eV.
+
+    The rate, the frequencies and the energy also take astropy quantities or
+    strings such as ``"5e-10 cm3/s"``.
     """
+    penning_rate = to_unit(penning_rate, "m3/s", "penning_rate")
+    wall_loss = to_unit(wall_loss, "1/s", "wall_loss")
+    max_energy = to_unit(max_energy, "eV", "max_energy")
     argon = species_from_formula("Ar")
     states = {
         "Ar": State(argon, "", 0.0, 1.0),
