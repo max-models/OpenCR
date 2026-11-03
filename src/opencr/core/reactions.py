@@ -1,9 +1,9 @@
 """Reactions between states.
 
-A :class:`Reaction` lists its reactant and product states (a state that
+A `Reaction` lists its reactant and product states (a state that
 appears twice counts twice), its kind, its rate model and the provenance of
 its data. Creating one checks the charge and element balance; photons are
-implicit products of the radiative kinds (:data:`RADIATIVE_KINDS`).
+implicit products of the radiative kinds (`RADIATIVE_KINDS`).
 """
 
 from __future__ import annotations
@@ -68,9 +68,9 @@ class Reaction:
     Attributes:
         name: A unique name in its network, e.g. ``"exc:H(n=1)->H(n=2)"``.
         reactants: The reactant states; the electron is
-            :data:`~opencr.core.species.ELECTRON_STATE`.
+            `ELECTRON_STATE`.
         products: The product states.
-        kind: One of :data:`REACTION_KINDS`.
+        kind: One of `REACTION_KINDS`.
         rate: The rate model.
         provenance: The origin of the rate data.
         escape: For a spontaneous emission, the default escape factor of the

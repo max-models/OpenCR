@@ -1,10 +1,10 @@
 """What a solve reports: convergence, residuals, conservation and positivity.
 
-Every solve returns a :class:`SolverReport`. A solve that does not converge
-raises :class:`ConvergenceError` with the report attached; an underdetermined
+Every solve returns a `SolverReport`. A solve that does not converge
+raises `ConvergenceError` with the report attached; an underdetermined
 system (a conserved element without a total) raises
-:class:`UnderdeterminedError`; a singular one
-:class:`~opencr.kinetics.effective.SingularSystemError`.
+`UnderdeterminedError`; a singular one
+`SingularSystemError`.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+from methodcard import method
 
 from opencr.kinetics.effective import SingularSystemError
 from opencr.kinetics.system import PopulationSystem
@@ -39,7 +40,7 @@ class SolverReport:
         converged: Whether the tolerances were met.
         iterations: Newton iterations or integrator steps.
         residual: The largest ``|R_i|`` relative to the gross flow through state
-            ``i`` (the sum of all its gains and losses), see :func:`relative_residual`.
+            ``i`` (the sum of all its gains and losses), see `relative_residual`.
         conservation: The relative error of each conserved total.
         minimum: The smallest density divided by the largest.
         clipped: States whose small negative densities (round-off) were set to zero.
@@ -84,6 +85,16 @@ class ConvergenceError(RuntimeError):
         super().__init__(f"{message}\n{report.summary()}")
 
 
+@method(
+    equations={
+        "residual": r"\epsilon_R = \max_i \frac{|R_i|}{\sum_r |\nu_{ir}|\, w_r}",
+        "conservation": r"\epsilon_e = \frac{\big|\sum_i c_{ei} n_i - N_e\big|}{N_e}",
+    },
+    assumptions=(
+        r"the residual over the gross flow through state $i$ (1 where there is none)",
+        r"the conservation error is reported (and enters the continuation's stopping test), but never raises on its own",
+    ),
+)
 def relative_residual(system: PopulationSystem, n: np.ndarray) -> float:
     """Return ``max_i |R_i| / (sum_r |N_ir| w_r)``, the residual relative to the gross flow."""
     w = system.reaction_rates(n)

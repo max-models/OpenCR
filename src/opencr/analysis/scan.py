@@ -1,12 +1,12 @@
 """Parameter scans over the conditions.
 
-:func:`scan` solves a model on the outer product of values of condition
+`scan` solves a model on the outer product of values of condition
 fields (``electron_temperature``, ``electron_density``, a driver density as
 ``density:<state>`` or a total as ``total:<element>``) and returns an xarray
 dataset with the populations and, for quasi-static solves, the effective rate
 coefficients between the drivers and the photon emissivity coefficients.
 Each point is an independent reference solve; the batched backends
-(:mod:`opencr.backends`) do the same for Maxwellian scans in one pass.
+(`opencr.backends`) do the same for Maxwellian scans in one pass.
 """
 
 from __future__ import annotations

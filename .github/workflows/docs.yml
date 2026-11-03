@@ -34,5 +34,8 @@ jobs:
         full-examples/effective-coefficients/index.html
         api/opencr/index.html
         api/opencr/model/index.html
+        numerics/index.html
+        numerics/kinetics-effective/index.html
+        numerics/kinetics-radiation/index.html
         tutorials/01-atomic-hydrogen/01_atomic_hydrogen.ipynb
         full-examples/effective-coefficients/plot-1.png

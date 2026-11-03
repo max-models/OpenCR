@@ -1,11 +1,11 @@
 """The result of a steady-state solve, and what can be read from it.
 
-A :class:`Result` keeps the model, the conditions, the rate coefficients, the
+A `Result` keeps the model, the conditions, the rate coefficients, the
 population equations and the densities of every state, with the solver's
 report. From it: the reaction fluxes and the dominant gains and losses of a
 state, the lines and their photon emissivity coefficients, a synthetic
-spectrum, and everything as an xarray dataset (:meth:`Result.to_dataset`) or a
-NetCDF file with the model's manifest (:meth:`Result.export`).
+spectrum, and everything as an xarray dataset (`Result.to_dataset`) or a
+NetCDF file with the model's manifest (`Result.export`).
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import xarray as xr
+from methodcard import method
 
 from opencr.analysis.emission import line_table, spectrum
 from opencr.core.conditions import Conditions
@@ -123,9 +124,25 @@ class Result:
         return entries[:number]
 
     def emission(self, air: bool = False) -> xr.Dataset:
-        """Return the lines: wavelength, emissivity and power (:func:`~opencr.analysis.emission.line_table`)."""
+        """Return the lines: wavelength, emissivity and power (`line_table`)."""
         return line_table(self.model.network, self.rates, self.populations, air)
 
+    @method(
+        equations={
+            "pec": r"\mathrm{PEC}_d = \frac{g\, A_{ul}\, C_{ud}}{n_e} \quad [\mathrm{m^3/s}], \qquad \epsilon = n_e \sum_d \mathrm{PEC}_d\, n_d",
+        },
+        assumptions=(
+            r"a quasi-static solve: $n_u = \sum_d C_{ud} n_d$; zero for a line whose upper state is a driver",
+            r"for atomic hydrogen the H(n=1) part is the excitation component, the H$^+$ part the recombination one",
+        ),
+        references=(
+            "[Summers et al., Plasma Phys. Control. Fusion 48, 263 (2006)](https://doi.org/10.1088/0741-3335/48/2/007)",
+        ),
+        components=(
+            "opencr.kinetics.effective.quasi_static",
+            "opencr.analysis.emission.line_table",
+        ),
+    )
     def photon_emissivity_coefficients(self) -> xr.DataArray:
         """Return ``PEC_d`` of every line per driver in m^3/s (quasi-static only).
 
@@ -234,7 +251,7 @@ class Result:
         return data
 
     def export(self, path: str | Path) -> Path:
-        """Write :meth:`to_dataset` to a NetCDF file and return its path."""
+        """Write `to_dataset` to a NetCDF file and return its path."""
         path = Path(path)
         self.to_dataset().to_netcdf(path, engine="scipy")
         return path

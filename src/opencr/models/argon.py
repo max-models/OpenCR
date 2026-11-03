@@ -9,16 +9,16 @@ resonant 4s[3/2]_1 and 4s'[1/2]_1 lumped into Ar(r), and Ar+, with
   electrons (Arrhenius fits over 1-7 eV, the range of the source),
 * metastable-resonant mixing by electrons and metastable pooling,
 * the resonance lines of Ar(r) to the ground state, trappable through
-  :class:`~opencr.core.conditions.RadiationTrapping`.
+  `RadiationTrapping`.
 
 With ``metal="Cu"`` or ``"Ti"`` the sputtered atom M, M+ and M2+ are added:
 electron-impact ionization of M and M+ from the Lotz formula
-(:func:`plasmacoll.metal_ionization_cross_section`, a lower estimate) and
+(`plasmacoll.metal_ionization_cross_section`, a lower estimate) and
 Penning ionization of M by Ar(m) at ``penning_rate``. The drivers are Ar and
 (with a metal) M. The ions need losses to have a steady state: give them as
 ``wall_loss`` (s^-1 by state), or prescribe the ion densities. Metastable
 pooling is quadratic in Ar(m); with ``pooling=False`` the network is linear in
-the quasi-static states and :meth:`~opencr.model.Model.effective_rates` gives
+the quasi-static states and `effective_rates` gives
 the stepwise ionization through the metastables as effective rates.
 
 This is the first rung of the magnetron programme's CR needs; the resolved

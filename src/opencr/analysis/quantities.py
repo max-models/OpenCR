@@ -1,7 +1,7 @@
 """Scalar quantities of a steady state, named by strings.
 
-The surrogates (:mod:`opencr.ml`), the sensitivities and the inverse
-modelling (:mod:`opencr.inference`) all ask a :class:`~opencr.analysis.results.Result`
+The surrogates (`opencr.ml`), the sensitivities and the inverse
+modelling (`opencr.inference`) all ask a `Result`
 for named scalars:
 
 ==========================================  ===============================================
@@ -26,6 +26,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
+from methodcard import method
 
 __all__ = ["KINDS", "check_quantity", "electron_cooling", "quantities", "quantity"]
 
@@ -59,6 +60,17 @@ def check_quantity(model: Any, name: str) -> None:
             raise ValueError(f"{name!r}: {rest} is not a spontaneous emission")
 
 
+@method(
+    equations={
+        "cooling": r"L_d = \sum_r k_r\, n_e^{a_{re} - 1}\, c_{X_r, d}\, \Delta E_r \quad [\mathrm{eV\,m^3/s}]",
+    },
+    assumptions=(
+        r"over the electron-impact, non-radiative reactions with one heavy reactant $X_r$",
+        r"$c_{X,d}$ the quasi-static population of $X$ per particle of driver $d$ (1 for $d$ itself, 0 for the other drivers)",
+        r"$\Delta E_r$ the internal energy the heavy particles gain: negative for de-excitation and three-body recombination; radiative recombination is not counted",
+    ),
+    components=("opencr.kinetics.effective.quasi_static",),
+)
 def electron_cooling(result: Any, driver: str) -> float:
     """Return the electron energy loss due to ``driver`` per electron and particle (eV m^3/s).
 

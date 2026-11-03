@@ -1,14 +1,14 @@
 """Time evolution of the populations with stiff integrators.
 
-:func:`solve_transient` integrates ``dn/dt = R(n, t)`` for the evolving states
-of a :class:`~opencr.kinetics.system.PopulationSystem` from initial densities
-with SciPy's implicit methods (BDF by default, or Radau) and the analytic sparse
-Jacobian of the system. The rates span 1e-3 to 1e9 s^-1 in a CR model, so the
+`solve_transient` integrates ``dn/dt = R(n, t)`` for the evolving states
+of a `PopulationSystem` from initial densities
+with SciPy's implicit methods (BDF by default, Radau or LSODA) and, for BDF
+and Radau, the analytic sparse Jacobian of the system. The rates span 1e-3 to 1e9 s^-1 in a CR model, so the
 problem is stiff; explicit methods are refused.
 
 The conditions are prescribed: constant (one system), or given as a function
 of time (``system_at(t)`` returns the system of that moment, built by
-:meth:`~opencr.model.Model.solve_transient` from ``conditions(t)``). The
+`solve_transient` from ``conditions(t)``). The
 report records the integrator's statistics, the drift of every element total
 the evolving states conserve (the particle balance; the charge balance holds
 by construction with a given ``n_e`` or quasi-neutrality) and the smallest
@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 import scipy.sparse as sps
 import scope_profiler as sp
+from methodcard import method
 from scipy.integrate import solve_ivp
 
 from opencr._profiling import PROFILE_TAGS
@@ -31,7 +32,7 @@ from opencr.kinetics.system import PopulationSystem
 
 __all__ = ["METHODS", "TransientReport", "solve_transient"]
 
-#: The stiff integrators of :func:`scipy.integrate.solve_ivp`.
+#: The stiff integrators of `scipy.integrate.solve_ivp`.
 METHODS = ("BDF", "Radau", "LSODA")
 
 
@@ -78,6 +79,26 @@ class TransientReport:
         return "\n".join(lines)
 
 
+@method(
+    equations={
+        "ode": r"\frac{d\mathbf n}{dt} = R\big(\max(\mathbf n, 0), t\big), \qquad \mathbf n(t_0) = \mathbf n_0",
+        "tolerance": r"\mathrm{atol} = 10^{-12} \max\big(\mathbf n_0,\ \mathbf n_P,\ N_e\big) \ (1 \text{ if all zero})",
+        "drift": r"\max_t \frac{\big|\sum_i c_{ei} n_i(t) - \sum_i c_{ei} n_i(t_0)\big|}{\sum_i c_{ei} n_i(t_0)}",
+    },
+    assumptions=(
+        r"stiff integrators only (`BDF`, the default, `Radau`, `LSODA`): CR rates span $10^{-3}$ to $10^9$ s$^{-1}$",
+        r"BDF and Radau get the analytic sparse Jacobian; LSODA forms its own by finite differences",
+        r"time-dependent conditions rebuild the rates and the system at each new time (a one-entry cache); the prescribed states stay the same",
+        r"negative output densities are set to zero, with a message",
+    ),
+    references=(
+        "[Virtanen et al., Nat. Methods 17, 261 (2020)](https://doi.org/10.1038/s41592-019-0686-2) (`solve_ivp`)",
+    ),
+    components=(
+        "opencr.kinetics.system.PopulationSystem.rhs",
+        "opencr.kinetics.system.PopulationSystem.jacobian",
+    ),
+)
 @sp.profile("opencr.solve_transient", tags=PROFILE_TAGS)
 def solve_transient(
     system: PopulationSystem,
@@ -96,7 +117,7 @@ def solve_transient(
         initial: The densities of the evolving states at ``times[0]`` (m^-3).
         times: The output times in s, increasing; the integration runs from
             the first to the last.
-        method: One of :data:`METHODS`.
+        method: One of `METHODS`.
         rtol: The relative tolerance of the integrator.
         atol: The absolute tolerance in m^-3; by default ``1e-12`` times the
             largest density of the problem (initial, prescribed or a total).

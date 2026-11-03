@@ -18,6 +18,7 @@ import math
 
 import numpy as np
 import xarray as xr
+from methodcard import Rule, method
 
 from opencr.constants import (
     ATOMIC_MASS,
@@ -60,6 +61,30 @@ def _label(network: ReactionNetwork, name: str) -> str:
     return f"{upper.name}->{lower.name}"
 
 
+def _doppler_rules() -> dict:
+    """The SymPy rule of `doppler_fwhm` (for the tests)."""
+    import sympy
+
+    lam, t, m = sympy.symbols("wavelength temperature mass", positive=True)
+    e, c = sympy.Float(ELEMENTARY_CHARGE), sympy.Float(SPEED_OF_LIGHT)
+    rule = lam * 2 * sympy.sqrt(2 * sympy.log(2)) * sympy.sqrt(t * e / m) / c
+    ranges = {
+        "wavelength": (100.0, 1000.0),
+        "temperature": (0.02, 10.0),
+        "mass": (1.6e-27, 7e-26),
+    }
+    return {"fwhm": Rule(rule, ranges=ranges)}
+
+
+@method(
+    equations={
+        "fwhm": r"\Delta\lambda_{\mathrm{FWHM}} = \lambda\, 2\sqrt{2\ln 2}\, \frac{\sigma_v}{c}, \qquad \sigma_v = \sqrt{\frac{kT}{m}}",
+    },
+    assumptions=(
+        r"a Maxwellian of the emitters at $T$: $\sigma_v$ per velocity component",
+    ),
+    symbolic=_doppler_rules,
+)
 def doppler_fwhm(wavelength: np.ndarray, temperature: float, mass: float) -> np.ndarray:
     """Return the Doppler FWHM in nm of lines at ``wavelength`` (nm), ``kT`` in eV, mass in kg."""
     sigma_v = math.sqrt(temperature * ELEMENTARY_CHARGE / mass)
@@ -72,6 +97,19 @@ def doppler_fwhm(wavelength: np.ndarray, temperature: float, mass: float) -> np.
     )
 
 
+@method(
+    equations={
+        "line": r"E = E_u - E_l, \qquad \lambda = \frac{hc}{E}, \qquad \epsilon = g\,A_{ul}\, n_u \ [\mathrm{photons\ m^{-3}\,s^{-1}}], \qquad P = \epsilon\, E\, e \ [\mathrm{W\,m^{-3}}]",
+    },
+    assumptions=(
+        r"every spontaneous emission $u \to l$ is a line; the escape factor $g$ is already in the rate",
+        r"photon energies from the state energies; vacuum wavelengths, or in air above 200 nm",
+    ),
+    components=(
+        "opencr.constants.photon_wavelength",
+        "opencr.constants.air_wavelength",
+    ),
+)
 def line_table(
     network: ReactionNetwork,
     rates: np.ndarray,
@@ -129,6 +167,17 @@ def line_table(
     )
 
 
+@method(
+    equations={
+        "spectrum": r"\epsilon_\lambda(\lambda) = \sum_{\mathrm{lines}} \frac{\epsilon}{\sigma\sqrt{2\pi}}\, e^{-(\lambda - \lambda_0)^2/2\sigma^2}, \qquad \sigma = \frac{\Delta\lambda_{\mathrm{FWHM}}}{2\sqrt{2\ln 2}}",
+        "width": r"\Delta\lambda_{\mathrm{FWHM}}^2 = \Delta\lambda_{\mathrm{Doppler}}^2 + \Delta\lambda_{\mathrm{instrument}}^2",
+    },
+    assumptions=(
+        r"Gaussian lines only: no Stark, Zeeman or natural broadening",
+        r"a line without either width raises",
+    ),
+    components=(doppler_fwhm,),
+)
 def spectrum(
     lines: xr.Dataset,
     wavelength: np.ndarray,
@@ -144,7 +193,7 @@ def spectrum(
     ``fwhm`` (nm) added in quadrature.
 
     Args:
-        lines: The output of :func:`line_table`.
+        lines: The output of `line_table`.
         wavelength: The grid in nm.
         temperature: The emitters' ``kT`` in eV; no Doppler broadening if ``None``.
         mass: The emitters' mass in kg.

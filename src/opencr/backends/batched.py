@@ -1,15 +1,17 @@
-"""The quasi-static reduction of many conditions at once, on cunumpy.
+r"""The quasi-static reduction of many conditions at once, on cunumpy.
 
 For a network that is linear in its states (one heavy reactant per reaction)
 the rate matrix of one set of conditions is
 
-    M = N diag(k n_e^(a_e)) S,
+$$
+M = N\,\mathrm{diag}\big(k\, n_e^{a_e}\big)\, S,
+$$
 
 with ``N`` the net stoichiometry (states x reactions), ``S`` the selector of
 each reaction's heavy reactant (reactions x states) and ``a_e`` the number
 of electrons among the reactants. For a batch of ``B`` electron temperatures
 and densities the matrices are a dense ``(B, n, n)`` array assembled in one
-``einsum``, and the quasi-static reduction of :mod:`opencr.kinetics.effective`
+``einsum``, and the quasi-static reduction of `opencr.kinetics.effective`
 is a batched dense solve, ``C = -M_QQ^-1 M_QP``, ``M_eff = M_PP + M_PQ C``.
 Every point is independent, so the batch is the natural unit of work for a
 GPU (``cunumpy.set_backend("cupy")``); the result comes back to the host and
@@ -30,6 +32,7 @@ import cunumpy as xp
 import numpy as np
 import scope_profiler as sp
 import xarray as xr
+from methodcard import method
 
 from opencr._profiling import PROFILE_TAGS
 from opencr.backends import device
@@ -167,6 +170,16 @@ class BatchedQuasiStatic:
         drivers = tuple(n for n in names if n in conditions.densities)
         return drivers or tuple(d for d in names if d in self.model.drivers)
 
+    @method(
+        equations={
+            "matrix": r"M_b = N\,\mathrm{diag}\big(k_b\, n_{e,b}^{a_e}\big)\, S, \qquad b = 1, \dots, B",
+        },
+        assumptions=(
+            r"$N$ the net stoichiometry (states $\times$ reactions), $S$ the selector of each reaction's one heavy reactant (reactions $\times$ states), $a_e$ the electrons among the reactants",
+            r"one dense `einsum` on cunumpy's `xp` (NumPy or CuPy for the whole process)",
+            r"Maxwellian electrons: the cross-section integrals of all reactions stacked and evaluated 32 temperatures per chunk; a non-Maxwellian EEDF is refused",
+        ),
+    )
     @sp.profile("opencr.batched_matrices", tags=PROFILE_TAGS)
     def matrices(
         self,
@@ -184,6 +197,17 @@ class BatchedQuasiStatic:
         )
         return k, matrix
 
+    @method(
+        equations={
+            "reduction": r"C_b = -M_{QQ,b}^{-1} M_{QP,b}, \qquad M^{\mathrm{eff}}_b = M_{PP,b} + M_{PQ,b}\, C_b",
+            "pec": r"\mathrm{PEC}_{d,b} = \frac{k_{A,b}\, C_{ud,b}}{n_{e,b}}",
+        },
+        assumptions=(
+            r"one heavy reactant per reaction and a given $n_e$; the driver densities do not enter (the system is linear)",
+            r"one batched dense `xp.linalg.solve` for all $B$ points; the reference is the per-point sparse `quasi_static`",
+        ),
+        components=(matrices, "opencr.kinetics.effective.quasi_static"),
+    )
     @sp.profile("opencr.batched_reduction", tags=PROFILE_TAGS)
     def run(
         self,
@@ -248,7 +272,7 @@ class BatchedQuasiStatic:
         effective: np.ndarray,
         rates: np.ndarray,
     ) -> BatchedReduction:
-        """Return the :class:`BatchedReduction` of host arrays, with the PECs from ``coefficients``."""
+        """Return the `BatchedReduction` of host arrays, with the PECs from ``coefficients``."""
         pec = np.zeros((te.size, len(self._lines), len(drivers)))
         for j, (upper, r) in enumerate(
             zip(self._line_upper, self._line_index, strict=True)
@@ -289,7 +313,7 @@ def batched_scan(
 ) -> xr.Dataset:
     """Return the effective rates and PECs on a grid of ``T_e`` and ``n_e``.
 
-    The batched counterpart of :func:`opencr.scan` for quasi-static solves of
+    The batched counterpart of `opencr.scan` for quasi-static solves of
     Maxwellian plasmas: the same variables (``effective_rate`` over
     ``(electron_temperature, electron_density, target, source)``,
     ``pec`` over ``(..., line, driver)`` and ``population_coefficient`` over

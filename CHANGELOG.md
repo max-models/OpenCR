@@ -7,6 +7,21 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Method cards (methodcard) on the equations of the model: the population equations and their
+  Jacobian, the rate models, the exact Maxwellian average, detailed balance (Boltzmann, Saha,
+  Klein-Rosseland), the EEDFs, the quasi-static reduction and the effective rates, the steady
+  and transient solves, radiation trapping (optical depth, escape factors, the self-consistent
+  iteration), the emission and PECs, the electron cooling, the atomic hydrogen model and its
+  data, the sensitivities, the effective-rate tables and the batched and JAX reductions, with
+  their assumptions and references. `test_method_cards.py` checks them: SymPy rules for 23
+  closed forms, the observed order of `Tabulated`, `MaxwellianIntegral`, `sensitivities` and
+  `EffectiveRateTable`, and the cards of the docs against those of the code. Adds the
+  `methodcard` dependency.
+- A Numerics section in the docs (header and sidebar): an overview of the model's equations
+  (`docs/src/content/docs/numerics/index.mdx`, with the main cards) and one page per module in
+  the order of the model (starlight-theme's `methodcard: { pages: true }`); a Numerics section
+  on each method's API page.
+
 - Molecular hydrogen: `hydrogen/molecular/basic` (H2(X, v=0..14), B, C, EF, a, d, H, H+, H2+;
   vibrational and electronic excitation, dissociation, ionization, radiative decays) and
   `hydrogen/molecular/ions` (dissociative attachment per level, H-, H3+ and their chemistry,
@@ -55,6 +70,9 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The docstrings render on the API pages: code spans instead of reST `:func:`, `:class:` and
+  `:mod:` roles, and `$$` math for the formulas of the population equations, the reduction,
+  the trapping, the batched reduction and the sensitivities.
 - `setup_project.sh` also renames the docs smoke paths (`api/opencr/...` in `docs.yml`), so the
   docs build of a new project no longer looks for the template's API pages.
 

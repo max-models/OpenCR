@@ -1,8 +1,8 @@
 """Datasets of CR solutions for surrogates, with provenance and reproducible splits.
 
-:func:`generate_dataset` samples conditions in given ranges (log-uniform, by
+`generate_dataset` samples conditions in given ranges (log-uniform, by
 a seeded Latin hypercube) and solves the model at each sample, storing the
-inputs, the quantities (:mod:`opencr.analysis.quantities`) and the
+inputs, the quantities (`opencr.analysis.quantities`) and the
 provenance: the model's manifest digest, the OpenCR version, the sampling
 and the seed. The split into training, validation and test sets is part of
 the dataset (``split``), drawn from its own seed, so every surrogate trained
@@ -73,7 +73,7 @@ def generate_dataset(
     Args:
         model: The model.
         conditions: The conditions the sampled fields are set in.
-        bounds: The range of each sampled field (as for :func:`opencr.scan`:
+        bounds: The range of each sampled field (as for `opencr.scan`:
             ``electron_temperature``, ``electron_density``, ``density:<state>``).
         outputs: The quantities to store.
         samples: The number of samples.

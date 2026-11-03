@@ -1,11 +1,11 @@
 """The plasma conditions of a solve.
 
-:class:`Conditions` holds everything a solve takes from outside the model:
+`Conditions` holds everything a solve takes from outside the model:
 the electron temperature (and optionally a non-Maxwellian energy
 distribution), the electron density or quasi-neutrality, the densities of the
 prescribed states (the drivers and backgrounds), the element totals of a
 closed steady state, the heavy-particle temperatures and the radiation
-trapping (escape factors given per line, or a :class:`RadiationTrapping`
+trapping (escape factors given per line, or a `RadiationTrapping`
 configuration they are computed from). See the guide "The CR model" for how
 a solve uses them.
 """
@@ -20,17 +20,17 @@ from typing import Any
 
 __all__ = ["ESCAPE_MODELS", "Conditions", "RadiationTrapping"]
 
-#: The escape-factor approximations of :mod:`opencr.kinetics.radiation`.
+#: The escape-factor approximations of `opencr.kinetics.radiation`.
 ESCAPE_MODELS = ("mewe", "holstein-slab", "holstein-cylinder")
 
 
 @dataclass(frozen=True)
 class RadiationTrapping:
-    """The escape-factor configuration of a solve (see :mod:`opencr.kinetics.radiation`).
+    """The escape-factor configuration of a solve (see `opencr.kinetics.radiation`).
 
     Attributes:
         length: The absorption length ``L`` in m (the distance to the wall).
-        model: One of :data:`ESCAPE_MODELS`.
+        model: One of `ESCAPE_MODELS`.
         lines: The names of the ``spontaneous_emission`` reactions to trap, or
             ``None`` for all of them.
         tolerance: The self-consistent iteration stops when no escape factor
@@ -69,12 +69,12 @@ class Conditions:
     Attributes:
         electron_temperature: ``kT_e`` in eV. With a non-Maxwellian ``eedf`` it is
             the temperature of the rates that are not cross sections and of
-            detailed balance; :meth:`from_eedf` sets it to ``2/3 <eps>``.
+            detailed balance; `from_eedf` sets it to ``2/3 <eps>``.
         electron_density: ``n_e`` in m^-3, or ``None`` for quasi-neutrality,
             ``n_e = sum z_i n_i`` over every charged state (evolving and
             prescribed).
         eedf: The electron energy distribution (an
-            :class:`opencr.kinetics.eedf.EEDF`), or ``None`` for a Maxwellian at
+            `opencr.kinetics.eedf.EEDF`), or ``None`` for a Maxwellian at
             ``electron_temperature``.
         densities: Densities in m^-3 of the prescribed states, by name: the
             drivers of a quasi-static solve (e.g. ``H(n=1)`` and ``H+``) and
@@ -86,7 +86,7 @@ class Conditions:
         escape: Escape factors in [0, 1] by reaction name, overriding the
             reactions' own and anything ``trapping`` computes.
         trapping: Compute the escape factors of the lines self-consistently
-            from the populations (:mod:`opencr.kinetics.radiation`); ``None``
+            from the populations (`opencr.kinetics.radiation`); ``None``
             for an optically thin plasma (apart from ``escape``).
     """
 
@@ -139,7 +139,7 @@ class Conditions:
 
     @property
     def heavy_temperature(self) -> dict[str, float]:
-        """The temperature of each kind of rate dependence (see :mod:`opencr.core.rates`)."""
+        """The temperature of each kind of rate dependence (see `opencr.core.rates`)."""
         ion = (
             self.ion_temperature
             if self.ion_temperature is not None

@@ -1,10 +1,10 @@
 """The result of a time-dependent solve.
 
-A :class:`TransientResult` keeps the densities of every state at the output
+A `TransientResult` keeps the densities of every state at the output
 times, the electron density, the conditions and the integrator's report. Any
-output time can be turned into a steady-state-like :class:`~opencr.analysis.results.Result`
-(:meth:`TransientResult.at`) for fluxes, dominant processes and emission, and
-the whole history into an xarray dataset (:meth:`TransientResult.to_dataset`).
+output time can be turned into a steady-state-like `Result`
+(`TransientResult.at`) for fluxes, dominant processes and emission, and
+the whole history into an xarray dataset (`TransientResult.to_dataset`).
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ class TransientResult:
         )
 
     def at(self, index: int = -1) -> Result:
-        """Return the state at output time ``index`` as a :class:`Result`.
+        """Return the state at output time ``index`` as a `Result`.
 
         Its report says how far the populations are from a steady state (the
         relative residual at that moment).

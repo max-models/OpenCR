@@ -1,4 +1,4 @@
-"""Radiation trapping as an escape-factor approximation.
+r"""Radiation trapping as an escape-factor approximation.
 
 An optically thick line ``u -> l`` is re-absorbed on its way out of the
 plasma, so only a fraction of the spontaneous emission leaves: the effective
@@ -7,11 +7,14 @@ OpenCR applies escape factors to the ``spontaneous_emission`` reactions, from
 the conditions (``Conditions.escape``, per line) or computed here from the
 line-centre optical depth of a Doppler-broadened line over a length ``L``,
 
-    tau_0 = kappa_0 L,   kappa_0 = lambda_0^3 g_u A_ul n_l / (8 pi^(3/2) g_l v_D),
+$$
+\tau_0 = \kappa_0 L, \qquad
+\kappa_0 = \frac{\lambda_0^3}{8\pi^{3/2}}\,\frac{g_u}{g_l}\,\frac{A_{ul}\, n_l}{v_D},
+$$
 
 with ``v_D = (2 kT / m)^(1/2)`` the emitters' thermal speed at the gas
 temperature (Mihalas 1978, eq. 9-6 with a Doppler profile). The escape factor
-is then one of the usual approximations (:data:`ESCAPE_MODELS`):
+is then one of the usual approximations (`ESCAPE_MODELS`):
 
 * ``"mewe"`` (default): ``g = (2 - exp(-tau_0 / 1000)) / (1 + tau_0)`` (Mewe
   1967, Brit. J. Appl. Phys. 18, 107), an interpolation that is right in both
@@ -26,11 +29,11 @@ Holstein's forms hold for ``tau_0 >> 1``; below ``tau_0 = e`` they are set
 to 1. ``L`` is the characteristic absorption length (the distance to the
 wall, not the full plasma size), to be chosen by the user; this is a
 zero-dimensional approximation of a transport problem and is explicit about
-it: no escape factor is applied unless a :class:`RadiationTrapping` is given.
+it: no escape factor is applied unless a `RadiationTrapping` is given.
 
 A self-consistent solve iterates: the escape factors depend on the lower
 populations, which depend on the escape factors
-(:meth:`opencr.model.Model.solve_steady_state`).
+(`opencr.model.Model.solve_steady_state`).
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ import math
 from collections.abc import Mapping
 
 import numpy as np
+from methodcard import Rule, method
 
 from opencr.constants import ELEMENTARY_CHARGE, photon_wavelength
 from opencr.core.conditions import ESCAPE_MODELS, RadiationTrapping
@@ -53,6 +57,69 @@ __all__ = [
 ]
 
 
+def _optical_depth_rules() -> dict:
+    """The SymPy rule of `line_centre_optical_depth` (for the tests)."""
+    import sympy
+
+    names = "wavelength einstein_a weight_ratio lower_density length temperature mass"
+    lam, a, ratio, n, length, t, m = sympy.symbols(names, positive=True)
+    speed = sympy.sqrt(2 * t * sympy.Float(ELEMENTARY_CHARGE) / m)
+    rule = (lam * sympy.Float(1e-9)) ** 3 * ratio * a * n * length
+    rule /= 8 * sympy.pi ** sympy.Rational(3, 2) * speed
+    ranges = {
+        "wavelength": (100.0, 700.0),
+        "einstein_a": (1e6, 1e9),
+        "weight_ratio": (1.0, 5.0),
+        "lower_density": (1e15, 1e19),
+        "length": (0.01, 1.0),
+        "temperature": (0.02, 1.0),
+        "mass": (1.6e-27, 7e-26),
+    }
+    return {"optical_depth": Rule(rule, ranges=ranges)}
+
+
+def _escape_factor_rules() -> dict:
+    """The SymPy rules of `escape_factor` (for the tests)."""
+    import sympy
+
+    tau = sympy.Symbol("optical_depth", positive=True)
+    holstein = 1 / (tau * sympy.sqrt(sympy.pi * sympy.log(tau)))
+
+    def model(name: str):
+        return lambda optical_depth: float(escape_factor(optical_depth, name))
+
+    thick = {"optical_depth": (3.0, 1e5)}
+    return {
+        "mewe": Rule(
+            (2 - sympy.exp(-tau / 1000)) / (1 + tau),
+            implementation=model("mewe"),
+            ranges={"optical_depth": (0.0, 1e4)},
+        ),
+        "holstein_slab": Rule(
+            holstein, implementation=model("holstein-slab"), ranges=thick
+        ),
+        "holstein_cylinder": Rule(
+            sympy.Float("1.60") * holstein,
+            implementation=model("holstein-cylinder"),
+            ranges=thick,
+        ),
+    }
+
+
+@method(
+    equations={
+        "optical_depth": r"\tau_0 = \kappa_0 L, \qquad \kappa_0 = \frac{\lambda_0^3}{8\pi^{3/2}}\,\frac{g_u}{g_l}\,\frac{A_{ul}\, n_l}{v_D}, \qquad v_D = \sqrt{\frac{2kT}{m}}",
+        "cross_section": r"\kappa_0 = \underbrace{\frac{\lambda_0^2}{8\pi}\,\frac{g_u}{g_l}\,A_{ul}}_{\text{integrated absorption}}\ \underbrace{\frac{\lambda_0}{\sqrt\pi\,v_D}}_{\phi(0)}\ n_l",
+    },
+    assumptions=(
+        r"a Doppler-broadened line at the emitters' temperature; no stimulated emission",
+        r"$L$ the absorption length (the distance to the wall), chosen by the user",
+    ),
+    references=(
+        "D. Mihalas, Stellar Atmospheres, 2nd ed., W. H. Freeman (1978), eq. 9-6",
+    ),
+    symbolic=_optical_depth_rules,
+)
 def line_centre_optical_depth(
     wavelength: float | np.ndarray,
     einstein_a: float | np.ndarray,
@@ -85,8 +152,24 @@ def line_centre_optical_depth(
     return kappa * length
 
 
+@method(
+    equations={
+        "mewe": r"g_{\mathrm{mewe}} = \frac{2 - e^{-\tau_0/1000}}{1 + \tau_0}",
+        "holstein_slab": r"g_{\mathrm{slab}} = \frac{1}{\tau_0\sqrt{\pi\ln\tau_0}} \quad (\tau_0 > e), \qquad 1 \ \text{below}",
+        "holstein_cylinder": r"g_{\mathrm{cyl}} = \frac{1.60}{\tau_0\sqrt{\pi\ln\tau_0}} \quad (\tau_0 > e), \qquad 1 \ \text{below}",
+    },
+    assumptions=(
+        r"Mewe (the default): 1 at $\tau_0 = 0$, about $1/\tau_0$ for $1 \ll \tau_0 \ll 1000$, $2/\tau_0$ for $\tau_0 \gg 1000$",
+        r"Holstein: asymptotic forms for $\tau_0 \gg 1$, an infinite slab of half-thickness $L$ or a cylinder of radius $L$; at $\tau_0 = e$ they jump from 1 to 0.207 (slab) and 0.332 (cylinder)",
+    ),
+    references=(
+        "R. Mewe, Brit. J. Appl. Phys. 18, 107 (1967)",
+        "[Holstein, Phys. Rev. 72, 1212 (1947)](https://doi.org/10.1103/PhysRev.72.1212)",
+    ),
+    symbolic=_escape_factor_rules,
+)
 def escape_factor(optical_depth: float | np.ndarray, model: str = "mewe") -> np.ndarray:
-    """Return the escape factor ``g(tau_0)`` of one of :data:`ESCAPE_MODELS`."""
+    """Return the escape factor ``g(tau_0)`` of one of `ESCAPE_MODELS`."""
     tau = np.asarray(optical_depth, dtype=float)
     if np.any(tau < 0.0):
         raise ValueError("the optical depth must be >= 0")
@@ -101,6 +184,16 @@ def escape_factor(optical_depth: float | np.ndarray, model: str = "mewe") -> np.
     raise ValueError(f"model must be one of {ESCAPE_MODELS}")
 
 
+@method(
+    equations={
+        "line": r"\lambda_0 = \frac{hc}{E_u - E_l}, \qquad g = g(\tau_0), \qquad \tau_0 = \tau_0(\lambda_0, A_{ul}, g_u/g_l, n_l, L, T_{\mathrm{gas}}, m)",
+    },
+    assumptions=(
+        r"every `spontaneous_emission` of `RadiationTrapping.lines` (all by default)",
+        r"$A_{ul}$ the untrapped `Constant` coefficient (another rate model raises); $m$ the emitter's mass",
+    ),
+    components=(line_centre_optical_depth, escape_factor),
+)
 def escape_factors(
     network: ReactionNetwork,
     populations: Mapping[str, float],

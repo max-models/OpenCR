@@ -4,7 +4,7 @@
 
 * electron-impact excitation ``n -> m`` and ionization of every level (Janev,
   Reiter and Samm 2003, section 2.1, and Johnson 1972, through
-  :mod:`plasmacoll.atomic_hydrogen`);
+  `plasmacoll.atomic_hydrogen`);
 * spontaneous emission ``m -> n`` (Johnson's oscillator strengths);
 * electron-impact de-excitation and three-body recombination by detailed
   balance, and radiative recombination (Janev, Reiter and Samm, eqs. 21-22),
@@ -12,8 +12,8 @@
 
 Above n = 24, where Johnson's excitation formula fails, the excitations
 involving a level ``n > 24`` use the Maxwellian rate coefficients of Vriens
-and Smeets (1980) (:func:`plasmacoll.atomic_hydrogen.vriens_smeets_excitation_rate`),
-so ``n_max`` can reach :data:`MAX_LEVEL`.
+and Smeets (1980) (`plasmacoll.atomic_hydrogen.vriens_smeets_excitation_rate`),
+so ``n_max`` can reach `MAX_LEVEL`.
 
 The drivers of the quasi-static solve are H(n=1) and H+.
 """
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from methodcard import method
 from plasmacoll.atomic_hydrogen import (
     JOHNSON_MAX_LEVEL,
     excitation_fit,
@@ -75,7 +76,7 @@ ASSUMPTIONS = (
 
 
 class _VriensSmeets:
-    """``K_VS(n -> m, T)``: a picklable callable for :class:`~opencr.core.rates.Function`."""
+    """``K_VS(n -> m, T)``: a picklable callable for `Function`."""
 
     def __init__(self, n: int, m: int) -> None:
         self.n, self.m = n, m
@@ -85,7 +86,7 @@ class _VriensSmeets:
 
 
 class _RadiativeRecombination:
-    """``alpha_rr(n, T)``: a picklable callable for :class:`~opencr.core.rates.Function`."""
+    """``alpha_rr(n, T)``: a picklable callable for `Function`."""
 
     def __init__(self, n: int) -> None:
         self.n = n
@@ -94,6 +95,37 @@ class _RadiativeRecombination:
         return radiative_recombination(self.n, temperature)
 
 
+@method(
+    equations={
+        "excitation": r"e + \mathrm{H}(n) \to e + \mathrm{H}(m): \ \text{Janev-Reiter-Samm eqs. (4), (5); Johnson for } m \le 24; \ \text{Vriens-Smeets rate above}",
+        "deexcitation": r"e + \mathrm{H}(m) \to e + \mathrm{H}(n): \ \text{detailed balance of the excitation}",
+        "emission": r"\mathrm{H}(m) \to \mathrm{H}(n) + h\nu: \ A_{mn}",
+        "ionization": r"e + \mathrm{H}(n) \to 2e + \mathrm{H}^+: \ \text{Janev-Reiter-Samm eq. (14) for } n \le 3, \ \text{Johnson above}",
+        "recombination": r"2e + \mathrm{H}^+ \to e + \mathrm{H}(n): \ \text{Saha inverse of the ionization}; \qquad e + \mathrm{H}^+ \to \mathrm{H}(n) + h\nu: \ \alpha_n",
+        "count": r"N_{\mathrm{reactions}} = \tfrac32\, n_{\max}(n_{\max} - 1) + 3 n_{\max}",
+    },
+    assumptions=(
+        r"$2 \le n_{\max} \le 60$; drivers H(n=1) and H$^+$",
+        r"$n$-bundled levels with statistically populated $l$ sub-states (overestimates 2s at low density); no levels above $n_{\max}$, no continuum lowering",
+        r"electron collisions only (no proton or atom impact, no $l$-mixing); no two-photon decay of 2s",
+        r"cross sections tabulated by plasmacoll to 10$^4$ eV and held above; Vriens-Smeets rates are Maxwellian only (evaluated at $T_{\mathrm{eff}}$ for another EEDF)",
+        r"`deexcitation`, `three_body_recombination` and `radiative_recombination_` switch their processes off",
+    ),
+    references=(
+        "[Janev, Reiter and Samm, Jül-4105 (2003)](https://eirene.de/Documentation/report_4105.pdf), sect. 2.1",
+        "[Johnson, Astrophys. J. 174, 227 (1972)](https://doi.org/10.1086/151486)",
+        "[Vriens and Smeets, Phys. Rev. A 22, 940 (1980)](https://doi.org/10.1103/PhysRevA.22.940), eq. (17)",
+        "[NIST Atomic Spectra Database](https://physics.nist.gov/asd)",
+    ),
+    components=(
+        hydrogen_levels,
+        einstein_a,
+        radiative_recombination,
+        CrossSectionRate,
+        DetailedBalance,
+        Function,
+    ),
+)
 def atomic_hydrogen_network(
     n_max: int = 20,
     isotope: str = "H",
@@ -105,7 +137,7 @@ def atomic_hydrogen_network(
     """Return the network of ``hydrogen/atomic/basic``.
 
     Args:
-        n_max: The highest principal quantum number, at most :data:`MAX_LEVEL`;
+        n_max: The highest principal quantum number, at most `MAX_LEVEL`;
             above 24 the Vriens-Smeets rates take over from Johnson's formula.
         isotope: ``"H"`` or ``"D"`` (the same data; the species are renamed).
         deexcitation: Include electron-impact de-excitation.

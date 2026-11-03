@@ -1,6 +1,6 @@
 """Inverse modelling: plasma parameters from measured quantities such as line ratios.
 
-Given measured quantities ``y_i`` (:mod:`opencr.analysis.quantities`, e.g.
+Given measured quantities ``y_i`` (`opencr.analysis.quantities`, e.g.
 Balmer line ratios) with relative uncertainties ``s_i``, and parameters
 ``theta`` of the conditions (``electron_temperature``, ``electron_density``,
 ``density:<state>``) with log-uniform priors on ``[low, high]``, the
@@ -9,11 +9,11 @@ posterior is
     p(theta | y) ~ exp(-chi^2 / 2),   chi^2 = sum_i (ln m_i(theta) - ln y_i)^2 / s_i^2,
 
 with log-normal errors (``s_i`` is the standard deviation of ``ln y_i``,
-about the relative uncertainty). :func:`posterior_grid` evaluates it on a grid
-of the parameters (exact for one to three parameters) and :func:`fit` finds
+about the relative uncertainty). `posterior_grid` evaluates it on a grid
+of the parameters (exact for one to three parameters) and `fit` finds
 the maximum by least squares in the log parameters. The forward model is the
 CR model, or any callable with the same signature, e.g. a trained surrogate
-(:meth:`opencr.ml.Surrogate.forward`), for speed.
+(`opencr.ml.Surrogate.forward`), for speed.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def forward_model(
     Args:
         model: The model.
         conditions: The conditions the parameters are set in.
-        parameters: The condition fields (as for :func:`opencr.scan`).
+        parameters: The condition fields (as for `opencr.scan`).
         outputs: The quantities.
         mode: The steady-state mode.
     """

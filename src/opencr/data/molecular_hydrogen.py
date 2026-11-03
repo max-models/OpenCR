@@ -1,17 +1,17 @@
 """Molecular hydrogen data: the states of H2, H2+, H3+ and H-, and their radiative data.
 
 * H2(X, v=0..14): the vibrational term energies of Fantz and Wuenderlich
-  (2006) (:data:`plasmacoll.vibrational.H2_GROUND_STATE_VIBRATIONAL_ENERGY_EV`),
+  (2006) (`plasmacoll.vibrational.H2_GROUND_STATE_VIBRATIONAL_ENERGY_EV`),
   rotations summed (weight 1 for every ``v``).
 * The excited electronic states B, C, EF, a and d at the vertical excitation
   energies of the cross-section fits of Janev, Reiter and Samm (2003)
-  (:data:`plasmacoll.janev.JANEV_FITS`), with their electronic weights.
+  (`plasmacoll.janev.JANEV_FITS`), with their electronic weights.
 * Radiative lifetimes of the ``v' = 0`` levels (Fantz and Wuenderlich 2006;
   Astashkevich and Lavrov 2015), rounded: B and C decay to X (Lyman and
   Werner bands), EF to B, a to the repulsive b (the continuum), d to a (the
   Fulcher band).
 
-Energies share the scale of :mod:`opencr.core.species` with atomic hydrogen:
+Energies share the scale of `opencr.core.species` with atomic hydrogen:
 zero at two H(1s) atoms per H2 (so H2(X, v=0) is at minus its dissociation
 energy ``D_0 = 4.478 eV``), H+ at 13.598 eV, H2+ at ``I(H2) - D_0`` and H3+
 below H2 + H+ by the proton affinity of H2.
