@@ -255,7 +255,7 @@ class Model:
             method: ``"BDF"`` (default), ``"Radau"`` or ``"LSODA"``.
             rtol: The relative tolerance.
             atol: The absolute tolerance in m^-3 (default ``1e-12`` of the
-                largest initial density).
+                largest initial, prescribed or total density).
         """
         from opencr.analysis.transient import TransientResult
 

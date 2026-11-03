@@ -2,8 +2,8 @@
 
 `solve_transient` integrates ``dn/dt = R(n, t)`` for the evolving states
 of a `PopulationSystem` from initial densities
-with SciPy's implicit methods (BDF by default, or Radau) and the analytic sparse
-Jacobian of the system. The rates span 1e-3 to 1e9 s^-1 in a CR model, so the
+with SciPy's implicit methods (BDF by default, Radau or LSODA) and, for BDF
+and Radau, the analytic sparse Jacobian of the system. The rates span 1e-3 to 1e9 s^-1 in a CR model, so the
 problem is stiff; explicit methods are refused.
 
 The conditions are prescribed: constant (one system), or given as a function

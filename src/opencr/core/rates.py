@@ -253,10 +253,11 @@ class Arrhenius(RateModel):
 class Tabulated(RateModel):
     """``k(T)`` from a table, interpolated linearly in ``log k`` against ``log T``.
 
-    Outside the table the end values hold. A ``threshold`` (eV) removes the
-    Boltzmann factor before interpolating, ``log(k exp(threshold / T))``,
-    which keeps the interpolation accurate at temperatures far below a
-    threshold.
+    A ``threshold`` (eV) removes the Boltzmann factor before interpolating,
+    ``log(k exp(threshold / T))``, which keeps the interpolation accurate at
+    temperatures far below a threshold. Outside the table this scaled
+    quantity holds its end value, so ``k = k_end exp(threshold / T_end -
+    threshold / T)`` there.
 
     Attributes:
         temperatures: The table temperatures in eV, increasing.

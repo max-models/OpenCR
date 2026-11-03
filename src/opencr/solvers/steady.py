@@ -9,12 +9,15 @@
   among themselves (a closed system), ``R = 0`` is singular; one equation per
   conserved element is replaced by its total from ``totals``. A conserved
   element without a total raises `UnderdeterminedError`.
-* **Nonlinear systems** (quasi-neutral ``n_e``, two evolving reactants) use
-  Newton's method with backtracking on the same equations, started from a
-  pseudo-transient continuation: implicit-Euler steps ``(I/dt - J) dx = R``
+* **Quasi-neutral systems** that are linear for a given ``n_e`` are a 1D root
+  in ``ln n_e`` (Brent's method), each evaluation a linear solve.
+* **Other nonlinear systems** (two evolving reactants, or a given start) use
+  a pseudo-transient continuation: implicit-Euler steps ``(F/dt - J) dx = R``
   whose ``dt`` grows as the residual falls (switched evolution relaxation),
   which follows the physical relaxation and keeps the totals of a closed
-  system.
+  system, and tends to Newton's method as ``dt`` grows. There is no separate
+  Newton phase, and no line search beyond damping the steps that would turn
+  a density negative.
 
 Every solve checks the relative residual, the conservation of the totals and
 the positivity of the densities, and returns a
@@ -129,9 +132,9 @@ def _linear(system, residual, jacobian) -> np.ndarray:
 def _quasi_neutral(system, totals, mode, rtol) -> tuple[np.ndarray, SolverReport]:
     """Solve a system that is linear for given ``n_e`` with quasi-neutrality as a 1D root.
 
-    ``g(n_e) = sum z n(n_e) - n_e``, with ``n(n_e)`` from a linear solve, is
-    positive for a tiny ``n_e`` and negative above the largest possible charge;
-    Brent's method finds the root in ``log n_e``.
+    ``g(n_e) = ln sum z n(n_e) - ln n_e``, with ``n(n_e)`` from a linear solve,
+    is positive for a tiny ``n_e`` and negative above the largest possible
+    charge; Brent's method finds the root in ``ln n_e``.
     """
     from scipy.optimize import brentq
 
@@ -296,7 +299,7 @@ def solve_steady(
             ionized when ``n_e`` is quasi-neutral.
         mode: The name of the solve for the report.
         rtol: The tolerance of the relative residual.
-        max_iterations: Newton plus continuation iterations.
+        max_iterations: Continuation steps.
 
     Raises:
         UnderdeterminedError: A conserved element has no total.
