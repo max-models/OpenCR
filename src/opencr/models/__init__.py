@@ -1,14 +1,14 @@
-"""Predefined models, loaded by name with :func:`load_model`.
+"""Predefined models, loaded by name with `load_model`.
 
 ======================================  ===================================================
 name                                    model
 ======================================  ===================================================
-``hydrogen/atomic/basic``               H(n=1..n_max) and H+ (:mod:`~opencr.models.hydrogen_atomic`)
+``hydrogen/atomic/basic``               H(n=1..n_max) and H+ (`hydrogen_atomic`)
 ``hydrogen/molecular/basic``            H2(X, v), its electronic states, H, H+ and H2+
-                                        (:mod:`~opencr.models.hydrogen_molecular`)
+                                        (`hydrogen_molecular`)
 ``hydrogen/molecular/ions``             the same with H-, H3+ and their chemistry
 ``argon/metastable``                    Ar, lumped Ar(m) and Ar(r), Ar+; a sputtered metal with
-                                        ``metal="Cu"`` (:mod:`~opencr.models.argon`)
+                                        ``metal="Cu"`` (`argon`)
 ======================================  ===================================================
 
 Options are passed on to the model's builder, e.g.

@@ -6,8 +6,8 @@ A network is written as one JSON document::
      "species": [...], "states": [...], "reactions": [...]}
 
 Each reaction lists its reactants and products by state name (``"e"`` for the
-electron), its kind, its rate model (:meth:`opencr.core.rates.RateModel.to_dict`;
-a :class:`~opencr.core.rates.Function` is written as its table) and its
+electron), its kind, its rate model (`opencr.core.rates.RateModel.to_dict`;
+a `Function` is written as its table) and its
 provenance. Reading checks the format name and version, then builds and
 checks the network. Files of a newer major version are refused.
 """
@@ -50,7 +50,7 @@ FORMAT_VERSION = 1
 
 
 def rate_from_dict(data: Mapping[str, Any]) -> RateModel:
-    """Return the rate model of :meth:`~opencr.core.rates.RateModel.to_dict`'s output."""
+    """Return the rate model of `to_dict`'s output."""
     data = dict(data)
     kind = data.pop("kind")
     depends_on = data.pop("depends_on", "electron")
@@ -112,7 +112,7 @@ def network_to_dict(network: ReactionNetwork) -> dict[str, Any]:
 
 
 def network_from_dict(data: Mapping[str, Any]) -> ReactionNetwork:
-    """Return the network of :func:`network_to_dict`'s output, checked."""
+    """Return the network of `network_to_dict`'s output, checked."""
     problems = []
     if data.get("format") != FORMAT_NAME:
         problems.append(
@@ -179,7 +179,7 @@ def save_network(network: ReactionNetwork, path: str | Path) -> Path:
 
 
 def load_network(path: str | Path) -> ReactionNetwork:
-    """Read a network written by :func:`save_network`."""
+    """Read a network written by `save_network`."""
     try:
         data = json.loads(Path(path).read_text())
     except json.JSONDecodeError as error:

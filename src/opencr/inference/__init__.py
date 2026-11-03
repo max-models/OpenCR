@@ -1,9 +1,9 @@
 """Sensitivities, uncertainty propagation and inverse modelling on top of the solver.
 
-* :func:`sensitivities` and :func:`propagate`
-  (:mod:`opencr.inference.sensitivity`): how results depend on the rate data,
+* `sensitivities` and `propagate`
+  (`opencr.inference.sensitivity`): how results depend on the rate data,
   and their uncertainty from the data's;
-* :func:`posterior_grid` and :func:`fit` (:mod:`opencr.inference.inverse`):
+* `posterior_grid` and `fit` (`opencr.inference.inverse`):
   plasma parameters from measured quantities such as line ratios.
 """
 

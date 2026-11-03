@@ -1,9 +1,9 @@
 """Checks of data before it enters a model.
 
-Every importer runs these checks, and :func:`check_network_data` runs them on a
+Every importer runs these checks, and `check_network_data` runs them on a
 whole network. A check returns a list of problems as sentences (empty when the
-data are fine); :func:`raise_problems` turns a non-empty list into a
-:class:`DataError`.
+data are fine); `raise_problems` turns a non-empty list into a
+`DataError`.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class DataError(ValueError):
 
 
 def raise_problems(problems: Sequence[str]) -> None:
-    """Raise :class:`DataError` if ``problems`` is not empty."""
+    """Raise `DataError` if ``problems`` is not empty."""
     if problems:
         raise DataError(problems)
 
@@ -176,7 +176,7 @@ def check_network_data(
 ) -> list[str]:
     """Check the data of every reaction and level of a network.
 
-    The levels (:func:`check_levels`), every cross section and rate table, and
+    The levels (`check_levels`), every cross section and rate table, and
     the provenance of every reaction that is not a detailed balance.
     """
     problems = check_levels(network.states)

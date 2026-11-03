@@ -1,8 +1,8 @@
 """Optional machine-learning surrogates of the CR solver. Imports scikit-learn only when used.
 
-* :func:`generate_dataset`: solutions over sampled conditions, with
+* `generate_dataset`: solutions over sampled conditions, with
   provenance and a reproducible train/validation/test split;
-* :class:`Surrogate`: a scikit-learn baseline with held-out errors, speed-up
+* `Surrogate`: a scikit-learn baseline with held-out errors, speed-up
   and an out-of-domain flag. The solver stays the reference.
 """
 

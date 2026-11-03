@@ -1,10 +1,10 @@
 """Where a piece of data comes from, how it was changed and what it may be used for.
 
-Every reaction, and every dataset of a model, carries a :class:`Provenance`:
+Every reaction, and every dataset of a model, carries a `Provenance`:
 the reference, the persistent identifier, the version and the retrieval date,
 the units and the conversions applied, the range of validity, the
 interpolation and extrapolation, the uncertainty and the licence under which
-it may be redistributed. :func:`opencr.data.checks.check_provenance` tells
+it may be redistributed. `opencr.data.checks.check_provenance` tells
 what is missing.
 """
 
@@ -96,7 +96,7 @@ class Provenance:
         uncertainty: The relative uncertainty (a fraction, e.g. 0.2), or ``None``
             if unknown.
         uncertainty_note: The uncertainty as the source states it.
-        licence: The licence of the data; one of :data:`LICENCES_REDISTRIBUTABLE`
+        licence: The licence of the data; one of `LICENCES_REDISTRIBUTABLE`
             for data OpenCR may ship, otherwise its name or ``"unknown"``.
         notes: Anything else, e.g. a correction of a misprint.
     """
@@ -136,7 +136,7 @@ class Provenance:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Provenance:
-        """Return the provenance of :meth:`to_dict`'s output."""
+        """Return the provenance of `to_dict`'s output."""
         data = dict(data)
         reference = Reference(**data.pop("reference"))
         validity = tuple(

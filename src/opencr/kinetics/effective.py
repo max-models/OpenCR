@@ -1,15 +1,20 @@
-"""Elimination of quasi-static states: population coefficients and effective rates.
+r"""Elimination of quasi-static states: population coefficients and effective rates.
 
 Split the states into the prescribed drivers ``P`` (the states with a density
 in the conditions) and the rest ``Q``. With all reactions linear in the
 states and ``n_e`` given, ``dn/dt = M n`` and the quasi-static ``Q`` follow
 from ``M_QQ n_Q + M_QP n_P = 0``:
 
-    n_Q = C n_P,   C = -M_QQ^-1 M_QP,
+$$
+\mathbf n_Q = C\,\mathbf n_P, \qquad C = -M_{QQ}^{-1} M_{QP},
+$$
 
 and the drivers then change at the effective rates
 
-    dn_P/dt = M_eff n_P,   M_eff = M_PP + M_PQ C.
+$$
+\frac{d\mathbf n_P}{dt} = M^{\mathrm{eff}} \mathbf n_P, \qquad
+M^{\mathrm{eff}} = M_{PP} + M_{PQ} C.
+$$
 
 ``C / n_e`` are the population coefficients (m^3) and ``M_eff / n_e`` the
 effective rate coefficients (m^3/s): for atomic hydrogen ``M_eff[H+, H(1)] / n_e``
@@ -25,6 +30,7 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
+from methodcard import Rule, method
 
 from opencr.core.conditions import Conditions
 from opencr.core.network import ReactionNetwork
@@ -56,11 +62,30 @@ class QuasiStatic:
     effective: np.ndarray
     electron_density: float
 
+    @method(
+        equations={
+            "coefficient": r"\frac{n_q}{n_e\, n_d} = \frac{C_{qd}}{n_e} \quad [\mathrm{m^3}]",
+        },
+    )
     def population_coefficient(self, state: str, driver: str) -> float:
         """Return ``n_state / (n_e n_driver)`` in m^3."""
         c = self.coefficients[self.excited.index(state), self.drivers.index(driver)]
         return float(c / self.electron_density)
 
+    @method(
+        equations={
+            "effective_rate": r"K_{\mathrm{source}\to\mathrm{target}} = \frac{M^{\mathrm{eff}}_{\mathrm{target},\mathrm{source}}}{n_e} \quad [\mathrm{m^3/s}]",
+            "hydrogen": r"S_{\mathrm{CR}} = \frac{M^{\mathrm{eff}}_{\mathrm{H^+},\mathrm{H}(1)}}{n_e}, \qquad \alpha_{\mathrm{CR}} = \frac{M^{\mathrm{eff}}_{\mathrm{H}(1),\mathrm{H^+}}}{n_e}",
+        },
+        assumptions=(
+            r"the diagonal ($\mathrm{source} = \mathrm{target}$) is minus the driver's total effective loss coefficient",
+            r"three-body recombination enters $M_{\cdot,\mathrm{H^+}}$ with $k\,n_e^2$, so $\alpha_{\mathrm{CR}}$ depends on $n_e$",
+            r"effective rates are results, never reactions of a network",
+        ),
+        references=(
+            "[Summers et al., Plasma Phys. Control. Fusion 48, 263 (2006)](https://doi.org/10.1088/0741-3335/48/2/007)",
+        ),
+    )
     def effective_rate(self, source: str, target: str) -> float:
         """Return the effective rate coefficient from ``source`` to ``target`` in m^3/s.
 
@@ -142,6 +167,84 @@ def _rate_matrix(
     return sps.csc_matrix((values, (rows, cols)), shape=(size, size))
 
 
+def _quasi_static_rules() -> dict:
+    """The SymPy rules of `quasi_static` (for the tests).
+
+    A ground state ``G`` and a proton (drivers) and one excited state ``X``:
+    excitation ``G -> X``, emission ``X -> G`` and ionization ``X -> H+``.
+    """
+    import sympy
+
+    from opencr.core.rates import Constant
+    from opencr.core.reactions import Reaction
+    from opencr.core.species import ELECTRON_STATE as E
+    from opencr.data.hydrogen import hydrogen_levels
+
+    (ground, excited), ion = hydrogen_levels(2)
+
+    def reduce(a: float, k12: float, kion: float, ne: float) -> QuasiStatic:
+        network = ReactionNetwork(
+            [ground, excited, ion],
+            [
+                Reaction(
+                    "exc", (E, ground), (E, excited), "excitation", Constant(value=k12)
+                ),
+                Reaction(
+                    "rad",
+                    (excited,),
+                    (ground,),
+                    "spontaneous_emission",
+                    Constant(value=a),
+                ),
+                Reaction(
+                    "ion", (E, excited), (E, E, ion), "ionization", Constant(value=kion)
+                ),
+            ],
+        )
+        densities = {ground.name: 1.0, ion.name: 1.0}
+        return quasi_static(
+            network, np.array([k12, a, kion]), Conditions(1.0, ne, densities=densities)
+        )
+
+    def coefficient(a: float, k12: float, kion: float, ne: float) -> float:
+        return float(reduce(a, k12, kion, ne).coefficients[0, 0])
+
+    def ionization(a: float, k12: float, kion: float, ne: float) -> float:
+        return reduce(a, k12, kion, ne).effective_rate(ground.name, ion.name)
+
+    a, k12, kion, ne = sympy.symbols("a k12 kion ne", positive=True)
+    ranges = {"a": (1e6, 1e9), "k12": (1e-16, 1e-14), "kion": (1e-15, 1e-13)}
+    ranges["ne"] = (1e16, 1e21)
+    return {
+        "reduction": Rule(
+            ne * k12 / (a + kion * ne), implementation=coefficient, ranges=ranges
+        ),
+        "effective": Rule(
+            k12 * kion * ne / (a + kion * ne), implementation=ionization, ranges=ranges
+        ),
+    }
+
+
+@method(
+    equations={
+        "matrix": r"M_{ij} = \sum_{r:\ j \text{ is the quasi-static reactant of } r} \nu_{ir}\, k_r\, n_e^{a_{re}} \prod_{p \in P,\, p \ne j} n_p^{a_{rp}}",
+        "reduction": r"\frac{d\mathbf n_Q}{dt} = M_{QQ}\mathbf n_Q + M_{QP}\mathbf n_P = 0 \quad\Rightarrow\quad \mathbf n_Q = C\,\mathbf n_P, \qquad C = -M_{QQ}^{-1} M_{QP}",
+        "effective": r"\frac{d\mathbf n_P}{dt} = M^{\mathrm{eff}} \mathbf n_P, \qquad M^{\mathrm{eff}} = M_{PP} + M_{PQ} C",
+        "solve": r"M_{QQ} = LU, \qquad X_0 = U^{-1}L^{-1} M_{QP}, \qquad X = X_0 + U^{-1}L^{-1}\left(M_{QP} - M_{QQ} X_0\right)",
+    },
+    assumptions=(
+        r"drivers $P$: the states with a density in the conditions; $Q$ the rest",
+        r"every reaction linear in its one quasi-static reactant (two are refused); a reaction among drivers only goes on the column of its first heavy reactant",
+        r"a given $n_e$ (a quasi-neutral one is refused)",
+        r"sparse LU (`splu`) with one step of iterative refinement; a zero diagonal of $M_{QQ}$ (a state without losses) or a singular factorisation raises `SingularSystemError`",
+    ),
+    references=(
+        "[Summers et al., Plasma Phys. Control. Fusion 48, 263 (2006)](https://doi.org/10.1088/0741-3335/48/2/007)",
+        "[Virtanen et al., Nat. Methods 17, 261 (2020)](https://doi.org/10.1038/s41592-019-0686-2) (`splu`)",
+    ),
+    components=(QuasiStatic.population_coefficient, QuasiStatic.effective_rate),
+    symbolic=_quasi_static_rules,
+)
 def quasi_static(
     network: ReactionNetwork, rates: np.ndarray, conditions: Conditions
 ) -> QuasiStatic:

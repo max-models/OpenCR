@@ -1,11 +1,11 @@
 """A reaction network: the states, the reactions between them and what is assumed.
 
-:class:`ReactionNetwork` holds plain Python objects and no arrays; the
-numerical layer compiles it (:mod:`opencr.kinetics.system`). Building one
-checks it (:meth:`ReactionNetwork.problems`): unique names, every state of
+`ReactionNetwork` holds plain Python objects and no arrays; the
+numerical layer compiles it (`opencr.kinetics.system`). Building one
+checks it (`ReactionNetwork.problems`): unique names, every state of
 every reaction in the network, the forward reaction of every detailed
 balance, the energy ordering of excitations and emissions. The
-:meth:`~ReactionNetwork.manifest` lists the states, the reactions, their
+`manifest` lists the states, the reactions, their
 sources and the assumptions in machine-readable form.
 """
 
@@ -48,7 +48,7 @@ class ReactionNetwork:
         reactions: The reactions; every state they use must be in ``states``.
         name: The name of the network, e.g. ``"hydrogen/atomic/basic"``.
         assumptions: The model's assumptions and omissions, one sentence each.
-        check: Raise :class:`NetworkError` if :meth:`problems` finds any.
+        check: Raise `NetworkError` if `problems` finds any.
     """
 
     def __init__(

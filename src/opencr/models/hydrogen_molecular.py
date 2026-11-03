@@ -24,7 +24,7 @@ s^-1 by state) stand in for transport.
 
 The drivers of the quasi-static solve are H2(X, v=0), H(n=1), H+ and H2+;
 with the ions, H3+ + H- makes the system nonlinear, which the steady solver
-handles (but not :meth:`~opencr.model.Model.effective_rates`). The model's
+handles (but not `effective_rates`). The model's
 assumptions list what is simplified; its coverage is in the guide
 "Molecular hydrogen".
 """

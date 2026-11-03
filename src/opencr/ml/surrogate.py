@@ -1,10 +1,10 @@
 """A baseline surrogate of the CR solver with scikit-learn.
 
-:class:`Surrogate` learns ``ln(outputs)`` from ``ln(inputs)`` of a dataset
-(:func:`~opencr.ml.dataset.generate_dataset`), by default with a Gaussian
-process (a neural network is the optional next step). The solver stays the reference: :meth:`Surrogate.evaluate`
+`Surrogate` learns ``ln(outputs)`` from ``ln(inputs)`` of a dataset
+(`generate_dataset`), by default with a Gaussian
+process (a neural network is the optional next step). The solver stays the reference: `Surrogate.evaluate`
 reports the held-out error against it and the speed-up, and
-:meth:`Surrogate.predict` flags inputs outside the training ranges (out of
+`Surrogate.predict` flags inputs outside the training ranges (out of
 domain), where the surrogate is not to be trusted. scikit-learn is imported
 only here (the ``ml`` extra).
 """
@@ -99,7 +99,7 @@ class Surrogate:
         return Prediction(np.exp(y), in_domain)
 
     def forward(self, theta: np.ndarray) -> np.ndarray:
-        """One sample's outputs, as a forward model for :mod:`opencr.inference`."""
+        """One sample's outputs, as a forward model for `opencr.inference`."""
         return self.predict(np.asarray(theta)[None, :]).values[0]
 
     def evaluate(

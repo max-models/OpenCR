@@ -1,17 +1,17 @@
 """Importers for published data formats.
 
-* :func:`lxcat_reactions`: electron-impact processes from an LXCat file
-  (read by :func:`plasmacoll.read_lxcat`), as reactions between states of a
+* `lxcat_reactions`: electron-impact processes from an LXCat file
+  (read by `plasmacoll.read_lxcat`), as reactions between states of a
   network. LXCat's terms of use do not allow redistribution: the files stay
   with the user and OpenCR never bundles them.
-* :func:`read_rate_table`: a two-column text file of temperature (eV) and rate
-  coefficient (SI), as a :class:`~opencr.core.rates.Tabulated` rate model.
-* :func:`read_adf11`: an ADAS adf11 file of effective (collisional-radiative)
+* `read_rate_table`: a two-column text file of temperature (eV) and rate
+  coefficient (SI), as a `Tabulated` rate model.
+* `read_adf11`: an ADAS adf11 file of effective (collisional-radiative)
   coefficients, such as OPEN-ADAS ``scd12_h.dat`` and ``acd12_h.dat``, for
   comparisons. OPEN-ADAS data are for personal use and must not be
   redistributed: OpenCR reads the user's own downloads and never ships them.
 
-Every importer checks the data (:mod:`opencr.data.checks`) and attaches a
+Every importer checks the data (`opencr.data.checks`) and attaches a
 provenance.
 """
 

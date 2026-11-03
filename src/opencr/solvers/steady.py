@@ -1,14 +1,14 @@
 """Steady states of the population equations.
 
-:func:`solve_steady` finds ``R(n) = 0`` for the evolving states of a
-:class:`~opencr.kinetics.system.PopulationSystem`:
+`solve_steady` finds ``R(n) = 0`` for the evolving states of a
+`PopulationSystem`:
 
 * **Linear systems** (one evolving reactant per reaction, ``n_e`` given) are
   solved directly by sparse LU with one step of iterative refinement.
 * **Conserved elements.** When the evolving states exchange an element only
   among themselves (a closed system), ``R = 0`` is singular; one equation per
   conserved element is replaced by its total from ``totals``. A conserved
-  element without a total raises :class:`~opencr.solvers.diagnostics.UnderdeterminedError`.
+  element without a total raises `UnderdeterminedError`.
 * **Nonlinear systems** (quasi-neutral ``n_e``, two evolving reactants) use
   Newton's method with backtracking on the same equations, started from a
   pseudo-transient continuation: implicit-Euler steps ``(I/dt - J) dx = R``
@@ -18,7 +18,7 @@
 
 Every solve checks the relative residual, the conservation of the totals and
 the positivity of the densities, and returns a
-:class:`~opencr.solvers.diagnostics.SolverReport`.
+`SolverReport`.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
 import scope_profiler as sp
+from methodcard import method
 
 from opencr._profiling import PROFILE_TAGS
 from opencr.kinetics.effective import SingularSystemError
@@ -44,6 +45,16 @@ from opencr.solvers.diagnostics import (
 __all__ = ["constraint_rows", "solve_steady"]
 
 
+@method(
+    equations={
+        "constraint": r"R_{i_e}(\mathbf n) \ \to\ \sum_i c_{ei}\, n_i - N_e = 0, \qquad i_e = \arg\max_i c_{ei} \ \text{(first unused, stable order)}",
+    },
+    assumptions=(
+        r"one row per conserved element replaced by its total $N_e$ from `Conditions.totals`; a missing total raises `UnderdeterminedError`",
+        r"for atomic hydrogen in `full` mode every state holds one H, so the H(n=1) row is replaced",
+    ),
+    components=("opencr.kinetics.system.PopulationSystem.conservation",),
+)
 def constraint_rows(
     system: PopulationSystem, totals: Mapping[str, float] | None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple[str, ...]]:
@@ -242,6 +253,30 @@ def _clip(system, n, report) -> np.ndarray:
     return n
 
 
+@method(
+    equations={
+        "linear": r"J(\mathbf 0)\,\mathbf n = -R(\mathbf 0) \quad \text{by sparse LU, one step of iterative refinement}",
+        "quasi_neutral": r"\ln\sum_j z_j n_j(n_e) - \ln n_e = 0 \quad \text{by Brent's method in } \ln n_e, \ \text{each evaluation a linear solve}",
+        "continuation": r"\Big(\frac{F}{\Delta t} - J\Big)\,\delta\mathbf n = R(\mathbf n), \qquad F_i = \begin{cases} 1 & \text{free row} \\ 0 & \text{constraint row} \end{cases}, \qquad \Delta t_0 = \frac{1}{\max(\max_i |J_{ii}|, 1)}",
+        "damping": r"f = \min_{i:\, n_i + \delta n_i < 0} \frac{0.9\, n_i}{-\delta n_i} \ (\ge 10^{-6}), \qquad \mathbf n \leftarrow \max(\mathbf n + f\,\delta\mathbf n, 0)",
+        "relaxation": r"\Delta t \leftarrow \Delta t\ \mathrm{clip}\!\left(\frac{2\|R\|_{*,\mathrm{old}}}{\|R\|_{*,\mathrm{new}}},\ 0.5,\ 10^3\right), \qquad \|R\|_* = \frac{\|R\|_2}{\sum_i |n_i|}",
+    },
+    assumptions=(
+        r"linear systems (one evolving reactant, given $n_e$): one LU solve; a zero diagonal (a state without losses) raises `SingularSystemError`",
+        r"quasi-neutral and linear for given $n_e$, without a start: the bracket $[10^{-30}, 10]\,s$ ($s$ the total charge scale) widened by $\times 100$ up to 20 times; a negative excess at the lower end raises",
+        r"otherwise pseudo-transient continuation with switched evolution relaxation (no separate Newton phase); a step that raises $\|R\|_*$ tenfold undamped is rejected with $\Delta t \leftarrow \Delta t/4$, a non-finite one with $\Delta t \leftarrow \Delta t/10$",
+        r"the default start puts each total in the lowest-energy neutral holder (10% in the lowest ion when quasi-neutral), plus $10^{-12}\max(N, 1)$ in every state",
+        r"negatives within $10^{-8}$ of the largest density are zeroed; only the relative residual decides failure, above $\max(\mathrm{rtol}, 10^{-6})$",
+    ),
+    references=(
+        "[Virtanen et al., Nat. Methods 17, 261 (2020)](https://doi.org/10.1038/s41592-019-0686-2) (`splu`, `brentq`)",
+    ),
+    components=(
+        constraint_rows,
+        "opencr.solvers.diagnostics.relative_residual",
+        "opencr.kinetics.system.PopulationSystem.jacobian",
+    ),
+)
 @sp.profile("opencr.solve_steady", tags=PROFILE_TAGS)
 def solve_steady(
     system: PopulationSystem,

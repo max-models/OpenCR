@@ -3,20 +3,20 @@
 Nothing in the core imports JAX; this module does, and it is only usable
 with the ``jax`` extra installed. It reuses the reference's prepared rate
 evaluators with ``jax.numpy`` as the array namespace and the structure of a
-:class:`~opencr.kinetics.system.PopulationSystem`, so that
+`PopulationSystem`, so that
 
-* :meth:`JaxModel.rates` evaluates every reaction's Maxwellian rate
+* `JaxModel.rates` evaluates every reaction's Maxwellian rate
   coefficient at one or many electron temperatures in one jitted call;
-* :meth:`JaxModel.rhs` and :meth:`JaxModel.jacobian` give ``R(n)`` and
+* `JaxModel.rhs` and `JaxModel.jacobian` give ``R(n)`` and
   ``dR/dn`` of the population equations by forward-mode automatic
   differentiation, for the general (nonlinear, quasi-neutral) equations;
-* :meth:`JaxModel.reduction` is the quasi-static reduction of a batch of
+* `JaxModel.reduction` is the quasi-static reduction of a batch of
   ``(T_e, n_e)`` with ``jax.vmap``, the counterpart of
-  :mod:`opencr.backends.batched`;
-* :meth:`JaxModel.effective_rate` is differentiable: ``jax.grad`` of it
+  `opencr.backends.batched`;
+* `JaxModel.effective_rate` is differentiable: ``jax.grad`` of it
   gives the sensitivity of an effective coefficient to ``T_e`` and ``n_e``.
 
-Two things differ from the reference: a :class:`~opencr.core.rates.Function`
+Two things differ from the reference: a `Function`
 rate (Python code) is tabulated on its ``file_temperatures`` and interpolated
 in log-log (the same as when it is written to a file), and a non-Maxwellian
 EEDF is refused. The first call of each jitted function compiles it; the
@@ -33,6 +33,7 @@ import cunumpy as xp
 import jax
 import jax.numpy as jnp
 import numpy as np
+from methodcard import method
 
 from opencr.backends.batched import BatchedQuasiStatic, BatchedReduction
 from opencr.core.conditions import Conditions
@@ -166,6 +167,16 @@ class JaxModel:
         ne = -1.0 if electron_density is None else float(electron_density)
         return self._rhs(jnp.asarray(n, dtype=float), float(electron_temperature), ne)
 
+    @method(
+        equations={
+            "jacobian": r"J = \frac{\partial R}{\partial \mathbf n} \quad \text{by forward-mode automatic differentiation (}\texttt{jax.jacfwd}\text{) of } R(\mathbf n) = \sum_r \nu_{ir} w_r",
+        },
+        assumptions=(
+            r"dense; the general equations (nonlinear, quasi-neutral) with Maxwellian rates",
+            r"a `Function` rate is tabulated on its `file_temperatures` and interpolated in log-log",
+        ),
+        components=("opencr.kinetics.system.PopulationSystem.jacobian",),
+    )
     def jacobian(
         self, n: Any, electron_temperature: float, electron_density: float | None = None
     ) -> Any:
@@ -216,6 +227,15 @@ class JaxModel:
             np.asarray(k),
         )
 
+    @method(
+        equations={
+            "gradient": r"\frac{\partial}{\partial T_e}\, \frac{M^{\mathrm{eff}}_{\mathrm{target},\mathrm{source}}(T_e, n_e)}{n_e} \quad \text{by } \texttt{jax.grad}",
+        },
+        assumptions=(
+            r"the reduction of `quasi_static` written in `jax.numpy`, vmapped over $(T_e, n_e)$; float64",
+        ),
+        components=("opencr.kinetics.effective.QuasiStatic.effective_rate",),
+    )
     def effective_rate(
         self, source: str, target: str, electron_temperature: Any, electron_density: Any
     ) -> Any:

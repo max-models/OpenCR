@@ -1,10 +1,10 @@
 """Effective-rate tables for the codes that use OpenCR's results.
 
-:func:`effective_rate_table` solves a model on a grid of electron
+`effective_rate_table` solves a model on a grid of electron
 temperature and density and stores named quantities
-(:mod:`opencr.analysis.quantities`: effective rates, population and electron
+(`opencr.analysis.quantities`: effective rates, population and electron
 cooling coefficients, line emissivities) as an xarray dataset with the
-model's provenance; :class:`EffectiveRateTable` interpolates such a table,
+model's provenance; `EffectiveRateTable` interpolates such a table,
 bilinearly in ``ln q`` against ``ln T_e`` and ``ln n_e`` (end values outside),
 and writes and reads it as netCDF. wellbalanced, beamtracer and freeofcharge
 take their effective rates from these tables in place of fits.
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import xarray as xr
+from methodcard import ConvergenceProblem, method
 
 from opencr.analysis.quantities import check_quantity, quantities
 from opencr.analysis.results import _opencr_version
@@ -27,11 +28,52 @@ from opencr.model import Model
 __all__ = ["EffectiveRateTable", "effective_rate_table"]
 
 
+def _table_problem() -> ConvergenceProblem:
+    """``q = exp(-(ln T)^2 - (ln(n / 1e18))^2 / 4)`` at the cell centres of a table."""
+    span_t, span_n = np.log(100.0), np.log(1e4)
+
+    def exact(log_t, log_n):
+        return -(log_t**2) - (log_n - np.log(1e18)) ** 2 / 4.0
+
+    def error(step: float) -> float:
+        log_t = np.linspace(np.log(0.1), np.log(10.0), round(span_t / step) + 1)
+        log_n = np.linspace(np.log(1e16), np.log(1e20), round(span_n / step) + 1)
+        values = np.exp(exact(log_t[:, None], log_n[None, :]))
+        dataset = xr.Dataset(
+            {"value": (("quantity", "electron_temperature", "electron_density"), values[None])},
+            coords={
+                "quantity": ["q"],
+                "electron_temperature": np.exp(log_t),
+                "electron_density": np.exp(log_n),
+            },
+        )  # fmt: skip
+        mid_t = 0.5 * (log_t[1:] + log_t[:-1])
+        mid_n = 0.5 * (log_n[1:] + log_n[:-1])
+        grid_t, grid_n = np.meshgrid(mid_t, mid_n, indexing="ij")
+        got = EffectiveRateTable(dataset)("q", np.exp(grid_t), np.exp(grid_n))
+        return float(np.max(np.abs(np.log(got) - exact(grid_t, grid_n))))
+
+    return ConvergenceProblem(error, steps=[0.4, 0.2, 0.1, 0.05])
+
+
+@method(
+    equations={
+        "bilinear": r"\ln q(x, y) = (1-u)(1-w)\, \ln q_{ij} + u(1-w)\, \ln q_{i+1,j} + (1-u)w\, \ln q_{i,j+1} + uw\, \ln q_{i+1,j+1}",
+        "coordinates": r"x = \ln T_e, \quad y = \ln n_e, \qquad u = \frac{x - x_i}{x_{i+1} - x_i}, \quad w = \frac{y - y_j}{y_{j+1} - y_j}",
+    },
+    order=2,
+    assumptions=(
+        r"end values outside the table ($x$ and $y$ clipped)",
+        r"a quantity with zero or negative values (an effective loss rate, a cooling with recombination) is interpolated in $q$ instead of $\ln q$",
+        r"the order is in the table spacing in $\ln T_e$ and $\ln n_e$",
+    ),
+    problem=_table_problem,
+)
 class EffectiveRateTable:
     """A table of quantities against ``T_e`` and ``n_e``, interpolated in log space.
 
     Args:
-        dataset: A dataset as :func:`effective_rate_table` makes it.
+        dataset: A dataset as `effective_rate_table` makes it.
     """
 
     def __init__(self, dataset: xr.Dataset) -> None:
@@ -68,7 +110,7 @@ class EffectiveRateTable:
 
     @classmethod
     def from_netcdf(cls, path: str | Path) -> EffectiveRateTable:
-        """Read a table written by :meth:`to_netcdf`."""
+        """Read a table written by `to_netcdf`."""
         with xr.open_dataset(path, engine="scipy") as dataset:
             return cls(dataset.load())
 

@@ -1,18 +1,18 @@
 """A CR model: a reaction network with its drivers, and the solves on it.
 
-:class:`Model` is what :func:`opencr.load_model` returns and what a custom
+`Model` is what `opencr.load_model` returns and what a custom
 network is wrapped in. It evaluates the rate coefficients (once per set of
 conditions), builds the population equations and solves them (see the guide
 "The CR model"):
 
-* :meth:`Model.solve_steady_state` with ``mode="quasi-static"`` (the default):
+* `Model.solve_steady_state` with ``mode="quasi-static"`` (the default):
   the states with a density in the conditions are prescribed, the rest are in
   steady state;
 * ``mode="full"``: a closed steady state with the element totals of the
   conditions;
-* :meth:`Model.effective_rates`: the quasi-static reduction to effective rate
+* `Model.effective_rates`: the quasi-static reduction to effective rate
   and population coefficients;
-* :meth:`Model.solve_transient`: the populations against time from initial
+* `Model.solve_transient`: the populations against time from initial
   densities, with constant or time-dependent conditions.
 """
 
@@ -22,6 +22,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
+from methodcard import method
 
 from opencr.core.conditions import Conditions
 from opencr.core.network import ReactionNetwork
@@ -96,6 +97,14 @@ class Model:
         ]
         return PopulationSystem(self.network, rates, conditions, evolving)
 
+    @method(
+        equations={
+            "scaled": r"k_r \leftarrow f_r\, k_r, \qquad f_{\mathrm{inv}} = f_{\mathrm{fwd}} \ \text{for a detailed-balance inverse without a factor of its own}",
+        },
+        assumptions=(
+            r"an inverse moves with its forward reaction, so the scaled network keeps detailed balance: what sensitivities and uncertainty propagation perturb",
+        ),
+    )
     def scaled_rates(
         self, conditions: Conditions, factors: Mapping[str, float] | None = None
     ) -> np.ndarray:
@@ -169,6 +178,22 @@ class Model:
             }
         raise AssertionError("unreachable")  # pragma: no cover
 
+    @method(
+        equations={
+            "fixed_point": r"g^{(k)}_{\mathrm{new}} = g\big(\tau_0[n_l(g^{(k)})]\big), \qquad \text{given factors override computed ones line by line}",
+            "update": r"g^{(k+1)} = g^{(k)} + d\,\big(g^{(k)}_{\mathrm{new}} - g^{(k)}\big), \qquad d = 1 \to 0.5 \ \text{once the largest change grows}",
+            "stop": r"\max_{\mathrm{lines}} \big|g^{(k)}_{\mathrm{new}} - g^{(k)}\big| \le \texttt{tolerance}",
+        },
+        assumptions=(
+            r"only with `Conditions.trapping`: the first solve is optically thin apart from the given factors (an absent $g$ counts as 1)",
+            r"the result returned was solved with the previous factors; at `max_iterations` a `ConvergenceError` is raised",
+            r"the damping never goes back to 1",
+        ),
+        components=(
+            "opencr.solvers.steady.solve_steady",
+            "opencr.kinetics.radiation.escape_factors",
+        ),
+    )
     def solve_steady_state(
         self,
         conditions: Conditions,
@@ -177,16 +202,16 @@ class Model:
         rtol: float = 1.0e-9,
         factors: Mapping[str, float] | None = None,
     ):
-        """Return the steady state as a :class:`~opencr.analysis.results.Result`.
+        """Return the steady state as a `Result`.
 
         Args:
             conditions: The conditions. In ``"quasi-static"`` mode the drivers
                 need densities; in ``"full"`` mode the conserved elements need totals.
-            mode: One of :data:`MODES`.
+            mode: One of `MODES`.
             initial: Starting densities by state name for a nonlinear solve.
             rtol: The tolerance of the relative residual.
             factors: Multiply the rate coefficients of these reactions (by
-                name) by these factors (see :meth:`scaled_rates`).
+                name) by these factors (see `scaled_rates`).
         """
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
@@ -216,7 +241,7 @@ class Model:
         rtol: float = 1.0e-6,
         atol: float | None = None,
     ):
-        """Return the populations against time as a :class:`~opencr.analysis.transient.TransientResult`.
+        """Return the populations against time as a `TransientResult`.
 
         The states with a density in the conditions stay prescribed (constant,
         or following ``conditions(t)``); the others evolve from ``initial``.

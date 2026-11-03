@@ -1,0 +1,106 @@
+---
+title: Overview
+description: The equations of OpenCR, from the rate coefficients to the effective rates and the emission, and what the model leaves out.
+sidebar:
+  label: Overview
+---
+
+import MethodCard from '@max-models/starlight-theme/components/MethodCard.astro';
+
+OpenCR is a zero-dimensional collisional-radiative (CR) model of a low-temperature plasma: the
+populations of explicit states (atomic levels, ions, molecular levels) coupled by elementary
+reactions with traceable data. From them come the quasi-static populations of the excited
+states for given driver densities, the effective ionization, recombination and photon
+emissivity coefficients, closed steady states, the time evolution and the line emission. The
+electron temperature or energy distribution, the electron density (or quasi-neutrality), the
+heavy-particle temperatures and the escape factors are inputs: no energy equation and no
+transport are solved.
+
+Each equation on these pages is declared on the code that implements it, as a method card, and
+checked by the tests: 23 closed forms against SymPy rules, four discretisations against their
+order of convergence. The pages of the section list the cards module by module; this one shows
+how they fit together, for the predefined atomic hydrogen model (`hydrogen/atomic/basic`).
+
+## The pipeline
+
+1. **[Population equations](/OpenCR/numerics/kinetics-system/).** Reaction $r$ proceeds at
+   $w_r = k_r n_e^{a_{re}} \prod_j n_j^{a_{rj}}$ (mass action), and every state changes by
+   $dn_i/dt = \sum_r \nu_{ir} w_r$. The electron is never a state: $n_e$ is given or
+   quasi-neutral. The Jacobian is analytic and sparse; the conserved quantities are the
+   elements.
+2. **[Rate models](/OpenCR/numerics/core-rates/)** say how each $k_r$ is given: a cross
+   section, Arrhenius, a table, a constant (Einstein $A$), a Python function, or the
+   detailed-balance inverse of another reaction.
+3. **[Rate coefficients](/OpenCR/numerics/kinetics-rates/).** A piecewise-linear cross section
+   is averaged over a Maxwellian in closed form, segment by segment, with the threshold taken
+   out so that the inverses never overflow. De-excitation and three-body recombination follow
+   by Boltzmann and Saha, or by the Klein-Rosseland cross section for any
+   [electron energy distribution](/OpenCR/numerics/kinetics-eedf/):
+
+<MethodCard name="opencr.kinetics.rates.RateEvaluator.coefficients" headingLevel={3} />
+
+4. **[Quasi-static reduction](/OpenCR/numerics/kinetics-effective/).** With the drivers
+   (H(n=1) and H$^+$) prescribed, the excited states follow them instantly; eliminating them
+   gives the population coefficients and the effective (CR) rate coefficients
+   $S_{\mathrm{CR}}$ and $\alpha_{\mathrm{CR}}$:
+
+<MethodCard name="opencr.kinetics.effective.quasi_static" headingLevel={3} />
+
+5. **[Steady states](/OpenCR/numerics/solvers-steady/)** solve $R(\mathbf n) = 0$: a sparse LU
+   solve for a linear system, one row per conserved element replaced by its total for a closed
+   one, Brent's method in $\ln n_e$ for quasi-neutrality, and pseudo-transient continuation for
+   the rest, judged by the [relative residual](/OpenCR/numerics/solvers-diagnostics/).
+   **[Time integration](/OpenCR/numerics/solvers-transient/)** uses SciPy's stiff integrators
+   with the analytic Jacobian.
+6. **[Radiation trapping](/OpenCR/numerics/kinetics-radiation/).** An optically thick line is
+   reabsorbed: its $A$ is multiplied by an escape factor of the line-centre optical depth of a
+   Doppler-broadened line, iterated with the populations to
+   [self-consistency](/OpenCR/numerics/model/).
+7. **[Emission](/OpenCR/numerics/analysis-emission/):** the lines, their
+   [photon emissivity coefficients](/OpenCR/numerics/analysis-results/) per driver, Doppler and
+   instrumental widths, the [electron cooling](/OpenCR/numerics/analysis-quantities/)
+   coefficient.
+
+The **[atomic hydrogen model](/OpenCR/numerics/models-hydrogen-atomic/)** puts the
+[hydrogen data](/OpenCR/numerics/data-hydrogen/) together: levels resolved in $n$, the
+Janev-Reiter-Samm and Johnson cross sections (from plasmacoll), Vriens-Smeets rates above
+$n = 24$, Johnson's Einstein coefficients and the radiative recombination fits. Around the
+model: the [sensitivities](/OpenCR/numerics/inference-sensitivity/) to the rate data and the
+propagation of their uncertainties, the
+[effective-rate tables](/OpenCR/numerics/tables/) other codes interpolate, and the
+[batched](/OpenCR/numerics/backends-batched/) and [JAX](/OpenCR/numerics/backends-jax-backend/)
+reductions of many conditions at once.
+
+## Units and conventions
+
+SI units, except energies and temperatures ($kT$) in eV; densities in m$^{-3}$, a rate
+coefficient of a reaction with $k$ reactants in m$^{3(k-1)}$/s, wavelengths in nm in vacuum
+(in [air](/OpenCR/numerics/constants/) above 200 nm on request). The constants are CODATA 2018
+through `scipy.constants`, and $I_H = 13.598434599702$ eV from the NIST ASD. The hydrogen cross
+sections keep the report's 13.6 eV thresholds while the states use $I_H$: the 0.01% difference
+enters the detailed-balance exponents.
+
+## Not in the model
+
+- No energy equation, no EEDF calculation, no transport beyond explicit wall-loss and pumping
+  reactions: zero-dimensional.
+- Atomic hydrogen: $l$ sub-states statistically populated (overestimates 2s at low density); no
+  levels above $n_{\max}$, no continuum lowering; electron collisions only (no proton or atom
+  impact, no $l$-mixing); no two-photon decay of 2s, fine structure or Lamb shift; Kramers
+  recombination without Gaunt factor for $n \ge 3$; Vriens-Smeets rates Maxwellian only.
+- Radiation: optically thin unless escape factors are given or computed; trapping is an
+  escape-factor approximation over a user length, without stimulated emission, redistribution
+  or continuum opacity; spectra are Gaussian lines only.
+- Detailed balance for inverses with different numbers of heavy particles (dissociation,
+  attachment), or Saha inverses of non-electron rates.
+- The reduction, the batched and the JAX paths need one heavy reactant per reaction and a given
+  $n_e$.
+
+## Verification
+
+Besides the checks of the cards, the tests compare a closed steady state without radiation with
+Saha-Boltzmann to $10^{-8}$, the Maxwellian closed form with plasmacoll's quadrature to 0.2%,
+the corona limit, the two-level reduction and the Jacobian with finite differences, the Einstein
+coefficients with NIST and the radiative recombination with Osterbrock and Ferland, and
+$S_{\mathrm{CR}}$ and $\alpha_{\mathrm{CR}}$ with OPEN-ADAS when its files are available; see
+the [verification guide](/OpenCR/guides/verification/).
