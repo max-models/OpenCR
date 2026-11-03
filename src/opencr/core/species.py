@@ -12,6 +12,10 @@ Energies of the states of one element share one scale: zero at the ground
 state of the neutral, the ion's ground state at the ionization energy. Detailed
 balance and the photon energies of radiative transitions are computed from
 these energies.
+
+The mass of a species and the energy of a state take an astropy Quantity or a
+string such as ``"1.008 u"`` or ``"10.2 eV"`` as well as a number in kg or eV
+(see `plasmacoll.units`).
 """
 
 from __future__ import annotations
@@ -20,6 +24,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
+
+from plasmacoll.units import convert_units, unit_field
 
 from opencr.constants import ATOMIC_MASS, ELECTRON_MASS
 
@@ -51,11 +57,12 @@ class Species:
 
     name: str
     charge: int
-    mass: float
+    mass: float = unit_field("kg")
     composition: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Check the definition and freeze the composition."""
+        """Convert the mass to kg, check the definition and freeze the composition."""
+        convert_units(self)
         if not self.name:
             raise ValueError("a species needs a name")
         if int(self.charge) != self.charge:
@@ -151,12 +158,13 @@ class State:
 
     species: Species
     label: str = ""
-    energy: float = 0.0
+    energy: float = unit_field("eV", 0.0)
     weight: float = 1.0
     quantum_numbers: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Check the weight and freeze the quantum numbers."""
+        """Convert the energy to eV, check the weight and freeze the quantum numbers."""
+        convert_units(self)
         if self.weight <= 0.0:
             raise ValueError(f"{self.name}: the statistical weight must be > 0")
         object.__setattr__(

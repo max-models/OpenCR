@@ -14,6 +14,8 @@ density of the energy. Rate coefficients are
   (`TabulatedEEDF.from_boltzmann`).
 
 OpenCR does not compute EEDFs; they are inputs (see the guide "The CR model").
+Their energies and temperatures take an astropy Quantity or a string such as
+``"3 eV"`` or ``"30000 K"`` as well as a number in eV (see `plasmacoll.units`).
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from typing import Any
 
 import numpy as np
 from methodcard import Rule, method
+from plasmacoll.units import convert_units, to_array, unit_field
 from scipy.special import gamma
 
 __all__ = ["EEDF", "Generalized", "Maxwellian", "TabulatedEEDF"]
@@ -122,12 +125,13 @@ class EEDF:
 )
 @dataclass(frozen=True, eq=False)
 class Maxwellian(EEDF):
-    """A Maxwellian at ``temperature`` (eV)."""
+    """A Maxwellian at ``temperature`` (``kT`` in eV, or a quantity)."""
 
-    temperature: float
+    temperature: float = unit_field("eV")
 
     def __post_init__(self) -> None:
-        """Check the temperature."""
+        """Convert the temperature to eV and check it."""
+        convert_units(self)
         if not self.temperature > 0.0:
             raise ValueError("temperature must be > 0")
 
@@ -174,14 +178,16 @@ class Generalized(EEDF):
     ``shape = 1`` is a Maxwellian, ``shape = 2`` a Druyvesteyn distribution
     (elastic collisions with a constant cross section in a field). With
     ``eps0 = <eps> Gamma(3/(2x)) / Gamma(5/(2x))`` and
-    ``c = x / (eps0^3/2 Gamma(3/(2x)))``.
+    ``c = x / (eps0^3/2 Gamma(3/(2x)))``. The mean energy is in eV (or a
+    quantity).
     """
 
-    mean: float
+    mean: float = unit_field("eV")
     shape: float = 2.0
 
     def __post_init__(self) -> None:
-        """Check the parameters."""
+        """Convert the mean energy to eV and check the parameters."""
+        convert_units(self)
         if not self.mean > 0.0 or not self.shape > 0.0:
             raise ValueError("mean energy and shape must be > 0")
 
@@ -235,13 +241,13 @@ class TabulatedEEDF(EEDF):
     zero); beyond the last point ``F0`` is zero.
 
     Args:
-        energy: The grid in eV, increasing, ``>= 0``.
+        energy: The grid in eV (or a quantity), increasing, ``>= 0``.
         eepf: ``F0`` at ``energy``, non-negative, in any normalisation.
     """
 
     def __init__(self, energy: np.ndarray, eepf: np.ndarray) -> None:
         """Check, normalise and store the table."""
-        energy = np.asarray(energy, dtype=float)
+        energy = np.asarray(to_array(energy, "eV", "energy"), dtype=float)
         eepf = np.asarray(eepf, dtype=float)
         if energy.ndim != 1 or energy.shape != eepf.shape or energy.size < 2:
             raise ValueError("energy and eepf must be 1D arrays of equal length >= 2")

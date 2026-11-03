@@ -23,6 +23,7 @@ from typing import Any
 
 import numpy as np
 from methodcard import method
+from plasmacoll.units import to_array, to_unit
 
 from opencr.core.conditions import Conditions
 from opencr.core.network import ReactionNetwork
@@ -208,7 +209,8 @@ class Model:
             conditions: The conditions. In ``"quasi-static"`` mode the drivers
                 need densities; in ``"full"`` mode the conserved elements need totals.
             mode: One of `MODES`.
-            initial: Starting densities by state name for a nonlinear solve.
+            initial: Starting densities by state name for a nonlinear solve,
+                in m^-3 (or quantities).
             rtol: The tolerance of the relative residual.
             factors: Multiply the rate coefficients of these reactions (by
                 name) by these factors (see `scaled_rates`).
@@ -224,8 +226,9 @@ class Model:
                 )
         start = None
         if initial is not None:
+            given: dict[str, float] = to_unit(initial, "m-3", "initial")
             start = np.array(
-                [initial.get(n, 0.0) for n in self.network.state_names
+                [given.get(n, 0.0) for n in self.network.state_names
                  if n not in conditions.densities]
             )  # fmt: skip
         if conditions.trapping is None:
@@ -245,12 +248,14 @@ class Model:
 
         The states with a density in the conditions stay prescribed (constant,
         or following ``conditions(t)``); the others evolve from ``initial``.
+        ``initial``, ``times`` and ``atol`` take astropy quantities or strings
+        such as ``"1 us"`` as well as numbers in their documented units.
 
         Args:
             conditions: The conditions, or a function of the time in s
                 returning them (same prescribed states at every time).
-            initial: The densities at ``times[0]`` by state name; an evolving
-                state not listed starts empty.
+            initial: The densities in m^-3 at ``times[0]`` by state name; an
+                evolving state not listed starts empty.
             times: The output times in s, increasing.
             method: ``"BDF"`` (default), ``"Radau"`` or ``"LSODA"``.
             rtol: The relative tolerance.
@@ -259,7 +264,9 @@ class Model:
         """
         from opencr.analysis.transient import TransientResult
 
-        times = np.asarray(times, dtype=float)
+        initial = to_unit(initial, "m-3", "initial")
+        times = np.asarray(to_array(times, "s", "times"), dtype=float)
+        atol = to_unit(atol, "m-3", "atol")
         conditions_at: Callable[[float], Conditions]
         system_at: Callable[[float], PopulationSystem]
         varying: Callable[[float], PopulationSystem] | None = None

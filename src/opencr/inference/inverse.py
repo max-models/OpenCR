@@ -27,7 +27,7 @@ import xarray as xr
 from scipy.optimize import least_squares
 
 from opencr.analysis.quantities import check_quantity, quantities
-from opencr.analysis.scan import _apply
+from opencr.analysis.scan import _apply, _fields_in_units
 from opencr.core.conditions import Conditions
 from opencr.model import Model
 
@@ -119,7 +119,8 @@ def posterior_grid(
     Args:
         forward: The forward model, taking the parameters in the order of ``bounds``.
         observations: The measurements.
-        bounds: The prior range of each parameter.
+        bounds: The prior range of each parameter; a condition field's in its
+            unit (eV, m^-3) or as quantities.
         points: The grid points per parameter.
 
     Returns:
@@ -127,6 +128,7 @@ def posterior_grid(
         ``chi2``, and the attributes ``best`` (the grid maximum) and the
         posterior ``mean`` and ``std`` of each parameter's logarithm.
     """
+    bounds = _fields_in_units(bounds)
     _check_bounds(bounds)
     names = list(bounds)
     axes = [np.geomspace(low, high, points) for low, high in bounds.values()]
@@ -185,9 +187,14 @@ def fit(
     Args:
         forward: The forward model, taking the parameters in the order of ``bounds``.
         observations: The measurements.
-        bounds: The prior range of each parameter.
-        start: Starting values (default: the geometric centre of each range).
+        bounds: The prior range of each parameter; a condition field's in its
+            unit (eV, m^-3) or as quantities.
+        start: Starting values (default: the geometric centre of each range),
+            in the units of ``bounds``.
     """
+    bounds = _fields_in_units(bounds)
+    if start is not None:
+        start = _fields_in_units(start)
     _check_bounds(bounds)
     names = list(bounds)
     low = np.log([b[0] for b in bounds.values()])

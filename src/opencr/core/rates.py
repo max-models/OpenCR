@@ -9,17 +9,24 @@ s^-1 for one reactant, m^3/s for two and m^6/s for three.
 ``depends_on`` names the temperature a model depends on: ``"electron"``
 (``T_e``, or for a non-Maxwellian distribution the effective temperature
 ``2/3 <eps>``), ``"ion"``, ``"gas"`` or ``"none"``.
+
+The masses (kg), energies and temperatures (eV) of a rate model take an
+astropy Quantity or a string such as ``"11604 K"`` as well as a number (see
+`plasmacoll.units`). The rate coefficients themselves (``Arrhenius.a``,
+``Tabulated.values``, ``Constant.value``) are numbers in the SI unit of the
+reaction's order, which the rate model does not know.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import numpy as np
 from methodcard import ConvergenceProblem, Rule, method
 from plasmacoll import CrossSection
+from plasmacoll.units import convert_units, unit_field
 
 from opencr.constants import ELECTRON_MASS
 
@@ -46,7 +53,8 @@ class RateModel:
     depends_on: str = "electron"
 
     def __post_init__(self) -> None:
-        """Check ``depends_on``."""
+        """Convert the fields with a unit and check ``depends_on``."""
+        convert_units(self)
         if self.depends_on not in TEMPERATURES:
             raise ValueError(f"depends_on must be one of {TEMPERATURES}")
 
@@ -154,8 +162,8 @@ class CrossSectionRate(RateModel):
 
     kind: ClassVar[str] = "cross_section"
     cross_section: CrossSection | None = None
-    mass: float = ELECTRON_MASS
-    incident_mass: float | None = None
+    mass: float = unit_field("kg", ELECTRON_MASS)
+    incident_mass: float | None = unit_field("kg", None)
 
     def __post_init__(self) -> None:
         """Check the masses and the cross section."""
@@ -218,7 +226,7 @@ class Arrhenius(RateModel):
     kind: ClassVar[str] = "arrhenius"
     a: float = 0.0
     b: float = 0.0
-    c: float = 0.0
+    c: float = unit_field("eV", 0.0)
 
     def __post_init__(self) -> None:
         """Check the prefactor."""
@@ -266,9 +274,9 @@ class Tabulated(RateModel):
     """
 
     kind: ClassVar[str] = "tabulated"
-    temperatures: tuple[float, ...] = ()
+    temperatures: tuple[float, ...] = unit_field("eV", ())
     values: tuple[float, ...] = ()
-    threshold: float = 0.0
+    threshold: float = unit_field("eV", 0.0)
 
     def __post_init__(self) -> None:
         """Check and freeze the table."""
@@ -353,9 +361,9 @@ class Function(RateModel):
     kind: ClassVar[str] = "function"
     function: Callable[[np.ndarray], np.ndarray] | None = None
     label: str = ""
-    threshold: float = 0.0
-    file_temperatures: tuple[float, ...] = field(
-        default_factory=lambda: tuple(np.geomspace(0.01, 1.0e4, 241).tolist())
+    threshold: float = unit_field("eV", 0.0)
+    file_temperatures: tuple[float, ...] = unit_field(
+        "eV", default_factory=lambda: tuple(np.geomspace(0.01, 1.0e4, 241).tolist())
     )
 
     def __post_init__(self) -> None:

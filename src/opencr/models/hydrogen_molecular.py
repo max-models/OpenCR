@@ -41,6 +41,7 @@ from plasmacoll.janev import (
     HydrogenFit,
     dissociative_attachment_fit,
 )
+from plasmacoll.units import to_unit
 
 from opencr.core.network import ReactionNetwork
 from opencr.core.rates import (
@@ -441,7 +442,12 @@ def molecular_hydrogen_network(
         wall_loss: Loss frequencies in s^-1 by state name (e.g. ``{"H-": 1e4}``),
             each a ``wall_loss`` reaction that removes the state.
         max_energy: The last tabulated cross-section energy in eV.
+
+    The frequencies and the energy also take astropy quantities or strings
+    such as ``"1e4 1/s"``.
     """
+    wall_loss = to_unit(wall_loss, "1/s", "wall_loss")
+    max_energy = to_unit(max_energy, "eV", "max_energy")
     x = molecular_states(v_max, electronic=False)
     excited = (
         {s.label: s for s in molecular_states(0, electronic=True)[1:]}

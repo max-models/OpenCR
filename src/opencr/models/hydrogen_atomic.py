@@ -30,6 +30,7 @@ from plasmacoll.atomic_hydrogen import (
     transition_energy,
     vriens_smeets_excitation_rate,
 )
+from plasmacoll.units import to_unit
 
 from opencr.core.network import ReactionNetwork
 from opencr.core.rates import Constant, CrossSectionRate, DetailedBalance, Function
@@ -143,8 +144,10 @@ def atomic_hydrogen_network(
         deexcitation: Include electron-impact de-excitation.
         three_body_recombination: Include three-body recombination.
         radiative_recombination_: Include radiative recombination.
-        max_energy: The last tabulated cross-section energy in eV.
+        max_energy: The last tabulated cross-section energy in eV, or a
+            quantity such as ``"10 keV"``.
     """
+    max_energy = to_unit(max_energy, "eV", "max_energy")
     if not 2 <= n_max <= MAX_LEVEL:
         raise ValueError(f"n_max must be in [2, {MAX_LEVEL}]")
     levels, ion = hydrogen_levels(n_max, isotope)

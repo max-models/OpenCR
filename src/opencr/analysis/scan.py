@@ -7,16 +7,20 @@ dataset with the populations and, for quasi-static solves, the effective rate
 coefficients between the drivers and the photon emissivity coefficients.
 Each point is an independent reference solve; the batched backends
 (`opencr.backends`) do the same for Maxwellian scans in one pass.
+
+The values of an axis take astropy quantities or strings (``"1e12 cm-3"``,
+``"300 K"``) as well as numbers in the unit of the field (eV, m^-3).
 """
 
 from __future__ import annotations
 
 import itertools
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 import xarray as xr
+from plasmacoll.units import to_array, to_unit
 
 from opencr.core.conditions import Conditions
 from opencr.model import Model
@@ -33,6 +37,28 @@ _UNITS = {
     "density": "m^-3",
     "total": "m^-3",
 }
+
+
+def _field_unit(field: str) -> str | None:
+    """Return the unit of a scanned condition field (``None`` if unknown)."""
+    return _UNITS.get(field.split(":")[0])
+
+
+def _in_unit(field: str, values: Any) -> Any:
+    """Return the values of ``field`` (an array or a sequence) in its unit."""
+    unit = _field_unit(field)
+    return values if unit is None else to_array(values, unit, field)
+
+
+def _fields_in_units(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Return values (or ``(low, high)`` ranges) of condition fields in their units.
+
+    A field without a unit (not a condition field) takes plain numbers.
+    """
+    return {
+        name: to_unit(value, _field_unit(name) or "", name)
+        for name, value in values.items()
+    }
 
 
 def _apply(conditions: Conditions, field: str, value: float) -> Conditions:
@@ -63,6 +89,7 @@ def scan(
         **axes: The condition fields to scan and their values, e.g.
             ``electron_temperature=np.geomspace(0.5, 50, 20)``. Use
             ``{"density:H(n=1)": [...]}`` or ``{"total:H": [...]}`` unpacked with ``**``.
+            The values are in eV or m^-3, or quantities.
 
     Returns:
         A dataset over the axes (and ``state``, ``line``, ``driver``).
@@ -70,7 +97,7 @@ def scan(
     if not axes:
         raise ValueError("give at least one axis to scan")
     names = list(axes)
-    values = [np.asarray(v, dtype=float) for v in axes.values()]
+    values = [np.asarray(_in_unit(n, v), dtype=float) for n, v in axes.items()]
     shape = tuple(v.size for v in values)
     states = list(model.state_names)
     populations = np.zeros((*shape, len(states)))
