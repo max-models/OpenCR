@@ -38,4 +38,6 @@ jobs:
         numerics/kinetics-effective/index.html
         numerics/kinetics-radiation/index.html
         tutorials/01-atomic-hydrogen/01_atomic_hydrogen.ipynb
+        tutorials/01-atomic-hydrogen/1.plotly.json
+        full-examples/effective-coefficients/plot-1.plotly.json
         full-examples/effective-coefficients/plot-1.png

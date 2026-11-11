@@ -43,10 +43,12 @@ optional-dependencies.docs = [
   "griffe",
   "ipykernel",
   "jax",
+  "kaleido",
   "matplotlib>=3.10.9",
   "nbclient>=0.11",
   "nbformat>=5.11.1",
-  "plasma-plots",
+  # the figures of the tutorials and examples, as web figures
+  "plasma-plots[web]",
   "scikit-learn",
 ]
 optional-dependencies.jax = [ "jax" ]

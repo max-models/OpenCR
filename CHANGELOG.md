@@ -93,6 +93,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ionization of a prescribed metal, H2+ + H2(v)): they are linear in the quasi-static reactant.
 - `__version__` is read from the installed package metadata (`importlib.metadata`), not hardcoded,
   so it can no longer disagree with `pyproject.toml` (a hardcoded one went stale in releases).
+- The figures of the docs are interactive Plotly figures in the site's colours, drawn with
+  plasma-plots, one figure per plot and with their formulas typeset as LaTeX; the full
+  examples' figures are converted to web figures with posters (`docs/tools/examples.py`).
+  The `docs` extra adds kaleido and plasma-plots' `web` extra.
 
 ## [0.1.0] - 2026-10-05
 

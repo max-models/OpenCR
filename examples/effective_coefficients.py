@@ -29,18 +29,35 @@ ground = [
     for t in temperatures
 ]
 
-with plasma_plots.figure(1, 2) as fig:
+
+# the figure carries the title; the temperature as a formula
+LINEOUT = {"title": "", "xlabel": "$T_e$ [eV]"}
+
+
+def density_label(ne: float) -> str:
+    """The electron density as a legend entry, with its power of ten typeset."""
+    return f"$n_e = 10^{{{np.log10(ne):.0f}}}$ m$^{{-3}}$"
+
+
+def log_axes(ax) -> None:
+    """Logarithmic axes, the unit of the coefficients and the legend."""
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_ylabel("rate coefficient [m$^3$/s]")
+    ax.legend()
+
+
+with plasma_plots.figure(title=r"Effective ionization $S_\mathrm{CR}$") as fig:
     for ne in data["electron_density"].values:
-        label = f"n_e = {ne:.0e} m^-3"
-        s_cr.sel(electron_density=ne).plasma.plot.lineout(ax=fig[0], title="S_CR")
-        alpha_cr.sel(electron_density=ne).plasma.plot.lineout(
-            ax=fig[1], title="alpha_CR"
+        s_cr.sel(electron_density=ne).plasma.plot.lineout(
+            ax=fig[0], label=density_label(ne), **LINEOUT
         )
-        for ax in fig:
-            ax.lines[-1].set_label(label)
     fig[0].plot(temperatures, ground, "k--", label="ground state only")
-    for ax in fig:
-        ax.set_xscale("log")
-        ax.set_yscale("log")
-        ax.set_ylabel("m^3/s")
-        ax.legend()
+    log_axes(fig[0])
+
+with plasma_plots.figure(title=r"Effective recombination $\alpha_\mathrm{CR}$") as fig:
+    for ne in data["electron_density"].values:
+        alpha_cr.sel(electron_density=ne).plasma.plot.lineout(
+            ax=fig[0], label=density_label(ne), **LINEOUT
+        )
+    log_axes(fig[0])
