@@ -174,3 +174,6 @@ junit/
 # Quarto
 .quarto/
 README_files/
+
+# The wheel the live demo installs, built by docs/tools/pyodide_wheel.py
+docs/public/pyodide/

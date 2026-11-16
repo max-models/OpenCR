@@ -24,9 +24,13 @@ jobs:
   docs:
     uses: max-models/starlight-theme/.github/workflows/docs.yml@v0
     with:
-      pre-build: uv run python docs/tools/examples.py
+      pre-build: |
+        uv run python docs/tools/examples.py
+        uv run python docs/tools/pyodide_wheel.py
       smoke-paths: |
         getting-started/installation/index.html
+        getting-started/live-demo/index.html
+        pyodide/wheel.json
         tutorials/index.html
         guides/model/index.html
         tutorials/01-atomic-hydrogen/index.html

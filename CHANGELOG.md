@@ -7,6 +7,9 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- A live demo page in the docs: opencr runs in the browser with Pyodide, and sliders for the
+  electron temperature, density and highest level solve atomic hydrogen again. The wheel it
+  installs is built with the site by `docs/tools/pyodide_wheel.py`.
 - Method cards (methodcard) on the equations of the model: the population equations and their
   Jacobian, the rate models, the exact Maxwellian average, detailed balance (Boltzmann, Saha,
   Klein-Rosseland), the EEDFs, the quasi-static reduction and the effective rates, the steady

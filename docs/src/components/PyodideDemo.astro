@@ -1,0 +1,126 @@
+---
+// The live demo: opencr runs in the browser with Pyodide (WebAssembly Python). The wheel is built
+// by docs/tools/pyodide_wheel.py, its dependencies come from PyPI through micropip.
+import code from './opencr_demo.py?raw';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<div class="demo" data-base={base} data-code={code}>
+  <p class="status" role="status">Loading Python (about 10 s the first time)…</p>
+  <div class="controls">
+    <label><span>Electron temperature <output data-for="te"></output> eV</span>
+      <input type="range" id="te" min="-0.5" max="1.5" step="0.01" value="0.48" disabled />
+    </label>
+    <label><span>Electron density <output data-for="ne"></output> m<sup>-3</sup></span>
+      <input type="range" id="ne" min="16" max="21" step="0.05" value="19" disabled />
+    </label>
+    <label><span>Highest level <output data-for="nmax"></output></span>
+      <input type="range" id="nmax" min="5" max="30" step="1" value="15" disabled />
+    </label>
+  </div>
+  <svg class="chart" viewBox="0 0 640 300" role="img" aria-label="Populations of the hydrogen levels"></svg>
+  <dl class="numbers">
+    <div><dt>Ionization S<sub>CR</sub></dt><dd data-key="ionization">–</dd></div>
+    <div><dt>Recombination α<sub>CR</sub></dt><dd data-key="recombination">–</dd></div>
+    <div><dt>H-alpha emissivity</dt><dd data-key="halpha">–</dd></div>
+  </dl>
+</div>
+
+<style>
+  .demo { margin: 1.5rem 0; }
+  .status { color: var(--sl-color-gray-3); min-height: 1.5em; }
+  .controls { display: grid; gap: 0.75rem; }
+  .controls label { display: grid; gap: 0.25rem; }
+  .chart { width: 100%; height: auto; margin: 1rem 0; }
+  .chart :global(.axis) { stroke: var(--sl-color-gray-4); }
+  .chart :global(.bar) { fill: var(--sl-color-accent); }
+  .chart :global(text) { fill: var(--sl-color-gray-2); font-size: 11px; }
+  .numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
+  .numbers dt { color: var(--sl-color-gray-3); font-size: var(--sl-text-sm); }
+  .numbers div { margin: 0; }
+  .numbers dt, .numbers dd { margin-inline-start: 0; }
+  .numbers dd { margin-top: 0; font-size: var(--sl-text-lg); font-variant-numeric: tabular-nums; }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('.demo')!;
+  const status = root.querySelector<HTMLElement>('.status')!;
+  const inputs = [...root.querySelectorAll<HTMLInputElement>('input')];
+  const svg = root.querySelector<SVGSVGElement>('.chart')!;
+  const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.29.0/full/';
+  const fmt = (x: number) => x.toExponential(2).replace('e+', 'e');
+  const value = (id: string) => {
+    const x = Number(root.querySelector<HTMLInputElement>('#' + id)!.value);
+    return id === 'te' || id === 'ne' ? 10 ** x : x;
+  };
+
+  function draw(levels: number[], populations: number[]) {
+    const w = 640, h = 300, l = 56, r = 12, t = 28, b = 32;
+    const logs = populations.map((p) => Math.log10(Math.max(p, 1e-300)));
+    const top = Math.ceil(Math.max(...logs));
+    const bottom = Math.floor(Math.min(...logs));
+    const span = Math.max(top - bottom, 1);
+    const bw = (w - l - r) / levels.length;
+    let out = `<line class="axis" x1="${l}" y1="${t}" x2="${l}" y2="${h - b}"/><line class="axis" x1="${l}" y1="${h - b}" x2="${w - r}" y2="${h - b}"/>`;
+    for (let e = bottom; e <= top; e += Math.max(1, Math.round(span / 6))) {
+      const y = t + ((top - e) / span) * (h - t - b);
+      out += `<text x="${l - 6}" y="${y + 4}" text-anchor="end">1e${e}</text>`;
+    }
+    levels.forEach((n, i) => {
+      const y = t + ((top - logs[i]) / span) * (h - t - b);
+      out += `<rect class="bar" x="${l + i * bw + 1}" y="${y}" width="${Math.max(bw - 2, 1)}" height="${h - b - y}"/>`;
+      if (levels.length <= 15 || n % 5 === 0)
+        out += `<text x="${l + (i + 0.5) * bw}" y="${h - b + 14}" text-anchor="middle">${n}</text>`;
+    });
+    out += `<text x="${(l + w - r) / 2}" y="${h - 4}" text-anchor="middle">principal quantum number n</text>`;
+    out += `<text x="12" y="14">population [m⁻³]</text>`;
+    svg.innerHTML = out;
+  }
+
+  async function main() {
+    const { loadPyodide } = await import(/* @vite-ignore */ PYODIDE + 'pyodide.mjs');
+    const pyodide = await loadPyodide({ indexURL: PYODIDE });
+    await pyodide.loadPackage('micropip');
+    const { wheel } = await (await fetch(`${root.dataset.base}/pyodide/wheel.json`)).json();
+    status.textContent = 'Installing opencr and its dependencies…';
+    const url = new URL(`${root.dataset.base}/pyodide/${wheel}`, location.href).href;
+    await pyodide.runPythonAsync(`import micropip\nawait micropip.install(${JSON.stringify(url)})`);
+    await pyodide.runPythonAsync(root.dataset.code!);
+    const run = pyodide.globals.get('run');
+
+    let pending = false;
+    const update = () => {
+      for (const id of ['te', 'ne', 'nmax']) {
+        const out = root.querySelector<HTMLElement>(`output[data-for=${id}]`)!;
+        const v = value(id);
+        out.textContent = id === 'nmax' ? String(v) : id === 'te' ? v.toPrecision(2) : fmt(v);
+      }
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        try {
+          const r = JSON.parse(run(value('te'), value('ne'), value('nmax')));
+          draw(r.levels, r.populations);
+          for (const key of ['ionization', 'recombination', 'halpha']) {
+            const unit = key === 'halpha' ? ' photons m⁻³ s⁻¹' : ' m³ s⁻¹';
+            root.querySelector(`[data-key=${key}]`)!.textContent = fmt(r[key]) + unit;
+          }
+          status.textContent = 'Steady state of atomic hydrogen, solved in your browser.';
+        } catch (error) {
+          status.textContent = `The solve failed: ${error}`;
+        }
+      });
+    };
+    inputs.forEach((input) => {
+      input.disabled = false;
+      input.addEventListener('input', update);
+    });
+    update();
+  }
+
+  main().catch((error) => {
+    status.textContent = `Could not start Python: ${error}`;
+  });
+</script>

@@ -1,0 +1,35 @@
+---
+title: Live demo
+description: Solve atomic hydrogen in your browser, with opencr running in Pyodide.
+---
+
+import PyodideDemo from '../../../components/PyodideDemo.astro';
+
+This page runs opencr in your browser: [Pyodide](https://pyodide.org) is Python compiled to
+WebAssembly, so nothing is sent to a server. Move the sliders to solve the steady state of atomic
+hydrogen again, with the ground state at 10<sup>19</sup> m<sup>-3</sup> and protons at the
+electron density.
+
+<PyodideDemo />
+
+The bars are the level populations, and the numbers below are the effective ionization and
+recombination coefficients and the H-alpha emissivity of that steady state. The same calls in a
+script:
+
+```python
+import opencr
+
+model = opencr.load_model("hydrogen/atomic/basic", n_max=15)
+conditions = opencr.Conditions(
+    electron_temperature=3.0,
+    electron_density=1e19,
+    densities={"H(n=1)": 1e19, "H+": 1e19},
+)
+result = model.solve_steady_state(conditions)
+result.populations["H(n=3)"]
+result.reduction.effective_rate("H(n=1)", "H+")  # S_CR, m^3/s
+result.emission().sel(line="A:3-2")  # H-alpha
+```
+
+The page installs the opencr wheel built with the site, and its dependencies from PyPI, the first
+time it is opened; the browser keeps them afterwards.
