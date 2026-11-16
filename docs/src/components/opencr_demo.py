@@ -11,21 +11,14 @@ _models = {}
 
 
 def run(electron_temperature, electron_density, n_max):
-    """
-    Solve atomic hydrogen at one set of conditions.
+    """Solve atomic hydrogen at one set of conditions.
 
-    Parameters
-    ----------
-    electron_temperature : float
-        Electron temperature in eV.
-    electron_density : float
-        Electron density in m^-3; the protons have the same density.
-    n_max : int
-        Highest principal quantum number of the model.
+    Args:
+        electron_temperature: Electron temperature in eV.
+        electron_density: Electron density in m^-3; the protons have the same density.
+        n_max: Highest principal quantum number of the model.
 
-    Returns
-    -------
-    str
+    Returns:
         JSON with the level populations, S_CR, alpha_CR and the H-alpha emissivity.
     """
     n_max = int(n_max)
