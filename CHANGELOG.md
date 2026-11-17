@@ -8,8 +8,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - A live demo page in the docs: opencr runs in the browser with Pyodide, and sliders for the
-  electron temperature, density and highest level solve atomic hydrogen again. The wheel it
-  installs is built with the site by `docs/tools/pyodide_wheel.py`.
+  electron temperature, density and highest level solve atomic hydrogen again. It uses
+  starlight-theme's `PyodideDemo`, and the docs workflow builds the wheels it installs
+  (`pyodide: true`).
+- A Pyodide check in CI (`.github/workflows/pyodide.yml`, starlight-theme's reusable workflow):
+  the wheel installed in Pyodide, every module imported and the live demo run.
 - Method cards (methodcard) on the equations of the model: the population equations and their
   Jacobian, the rate models, the exact Maxwellian average, detailed balance (Boltzmann, Saha,
   Klein-Rosseland), the EEDFs, the quasi-static reduction and the effective rates, the steady

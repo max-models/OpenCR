@@ -3,16 +3,25 @@ title: Live demo
 description: Solve atomic hydrogen in your browser, with opencr running in Pyodide.
 ---
 
-import PyodideDemo from '../../../components/PyodideDemo.astro';
+import PyodideDemo from '@max-models/starlight-theme/components/PyodideDemo.astro';
+import code from '../../../components/opencr_demo.py?raw';
 
 This page runs opencr in your browser: [Pyodide](https://pyodide.org) is Python compiled to
 WebAssembly, so nothing is sent to a server. Move the sliders to solve the steady state of atomic
 hydrogen again, with the ground state at 10<sup>19</sup> m<sup>-3</sup> and protons at the
 electron density.
 
-<PyodideDemo />
+<PyodideDemo
+	code={code}
+	controls={[
+		{ name: 'electron_temperature', label: 'Electron temperature', min: -0.5, max: 1.5, step: 0.01, value: 3, log: true, unit: 'eV' },
+		{ name: 'electron_density', label: 'Electron density', min: 16, max: 21, step: 0.05, value: 1e19, log: true, unit: 'm<sup>-3</sup>' },
+		{ name: 'n_max', label: 'Highest level', min: 5, max: 30, step: 1, value: 15 },
+	]}
+	caption="Populations of the hydrogen levels in the steady state."
+/>
 
-The bars are the level populations, and the numbers below are the effective ionization and
+The bars are the level populations, and the numbers below them the effective ionization and
 recombination coefficients and the H-alpha emissivity of that steady state. The same calls in a
 script:
 
