@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-22
+
+First release.
+
 ### Added
 
 - A live demo page in the docs: opencr runs in the browser with Pyodide, and sliders for the
@@ -73,17 +77,6 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `effective`).
 - Verification against Saha-Boltzmann, coronal and detailed-balance limits, and an opt-in
   comparison with ADAS; guides, four tutorials and a full example.
-
-### Fixed
-
-- The docstrings render on the API pages: code spans instead of reST `:func:`, `:class:` and
-  `:mod:` roles, and `$$` math for the formulas of the population equations, the reduction,
-  the trapping, the batched reduction and the sensitivities.
-- `setup_project.sh` also renames the docs smoke paths (`api/opencr/...` in `docs.yml`), so the
-  docs build of a new project no longer looks for the template's API pages.
-
-### Added
-
 - Opt-in scope-profiler regions, as in plasmacoll, wellbalanced and patchwork: `_profiling.py`
   with the package's tag (`opencr`, renamed by `setup_project.sh`), registered on
   import, and an example region on `main`. Off unless the application enables the tag (e.g.
@@ -92,6 +85,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `PyPI dependencies` workflow and `scripts/check_pypi_dependencies.py`: on every pull request to
   `main`, fail if a dependency is a direct reference (`name @ git+https://...`), is not on PyPI, or
   has a version range that no release satisfies, instead of failing the release after the merge.
+- Package layout with a console entry point and pytest tests.
+- Astro + Starlight documentation site with executed tutorials and a generated API reference.
+- GitHub Actions for tests, ruff, pyright, tutorials, documentation and PyPI publishing.
+
 
 ### Changed
 
@@ -104,10 +101,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   examples' figures are converted to web figures with posters (`docs/tools/examples.py`).
   The `docs` extra adds kaleido and plasma-plots' `web` extra.
 
-## [0.1.0] - 2026-10-05
 
-### Added
+### Fixed
 
-- Package layout with a console entry point and pytest tests.
-- Astro + Starlight documentation site with executed tutorials and a generated API reference.
-- GitHub Actions for tests, ruff, pyright, tutorials, documentation and PyPI publishing.
+- The docstrings render on the API pages: code spans instead of reST `:func:`, `:class:` and
+  `:mod:` roles, and `$$` math for the formulas of the population equations, the reduction,
+  the trapping, the batched reduction and the sensitivities.
+- `setup_project.sh` also renames the docs smoke paths (`api/opencr/...` in `docs.yml`), so the
+  docs build of a new project no longer looks for the template's API pages.
