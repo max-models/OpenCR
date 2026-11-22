@@ -14,8 +14,6 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
-
 ```python
 import opencr
 
@@ -33,31 +31,15 @@ result.reduction.effective_rate("H(n=1)", "H+")  # S_CR in m^3/s
 
 ## What it does
 
-<CardGrid>
-	<Card title="Explicit physics" icon="open-book">
-		States, reactions and rate models are plain Python objects, independent of the numerics.
-		Every model lists its states, reactions, sources and assumptions in a manifest.
-	</Card>
-	<Card title="Traceable data" icon="document">
-		Every reaction carries its reference, units, conversions, validity, uncertainty and
-		licence. Cross sections come from plasmacoll; third-party data are never bundled.
-	</Card>
-	<Card title="Three solves" icon="setting">
-		Quasi-static excited states with effective rate and photon emissivity coefficients,
-		closed steady states (ionization balance, quasi-neutral), and population coefficients.
-	</Card>
-	<Card title="Verified" icon="approve-check">
-		Saha–Boltzmann and coronal limits, detailed balance with any energy distribution, and
-		effective coefficients within 10% of ADAS in the core of its range.
-	</Card>
-</CardGrid>
+- **Explicit physics.** States, reactions and rate models are plain Python objects, independent of the numerics. Every model lists its states, reactions, sources and assumptions in a manifest.
+- **Traceable data.** Every reaction carries its reference, units, conversions, validity, uncertainty and licence. Cross sections come from plasmacoll; third-party data are never bundled.
+- **Three solves.** Quasi-static excited states with effective rate and photon emissivity coefficients, closed steady states (ionization balance, quasi-neutral), and population coefficients.
+- **Verified.** Saha–Boltzmann and coronal limits, detailed balance with any energy distribution, and effective coefficients within 10% of ADAS in the core of its range.
 
 ## Start here
 
-<CardGrid>
-	<LinkCard title="Installation" href="/OpenCR/getting-started/installation/" description="Install OpenCR and its optional extras." />
-	<LinkCard title="Quickstart" href="/OpenCR/getting-started/quickstart/" description="Solve atomic hydrogen in a few lines." />
-	<LinkCard title="The CR model" href="/OpenCR/guides/model/" description="The equations, the closures and the units." />
-	<LinkCard title="Tutorials" href="/OpenCR/tutorials/" description="Executed notebooks with their outputs." />
-	<LinkCard title="API reference" href="/OpenCR/api/opencr/" description="Generated from the docstrings." />
-</CardGrid>
+- [Installation](/OpenCR/getting-started/installation/): install OpenCR and its optional extras.
+- [Quickstart](/OpenCR/getting-started/quickstart/): solve atomic hydrogen in a few lines.
+- [The CR model](/OpenCR/guides/model/): the equations, the closures and the units.
+- [Tutorials](/OpenCR/tutorials/): executed notebooks with their outputs.
+- [API reference](/OpenCR/api/opencr/): generated from the docstrings.
