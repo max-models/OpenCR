@@ -1,7 +1,7 @@
 """Species and their quantum states.
 
 A `Species` is a particle kind named by its formula, as in plasmacoll
-and wellbalanced (``"e"``, ``"H"``, ``"H+"``, ``"H2"``, ``"H-"``), with its
+and carafe (``"e"``, ``"H"``, ``"H+"``, ``"H2"``, ``"H-"``), with its
 charge, mass and elemental composition. A `State` is one state of a
 species that the model resolves: an atomic level ``H(n=2)``, a fine-structure
 level, a molecular electronic-vibrational state ``H2(X,v=3)``, or the species

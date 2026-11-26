@@ -6,7 +6,7 @@ temperature and density and stores named quantities
 cooling coefficients, line emissivities) as an xarray dataset with the
 model's provenance; `EffectiveRateTable` interpolates such a table,
 bilinearly in ``ln q`` against ``ln T_e`` and ``ln n_e`` (end values outside),
-and writes and reads it as netCDF. wellbalanced, beamtracer and freeofcharge
+and writes and reads it as netCDF. carafe, beamtracer and freeofcharge
 take their effective rates from these tables in place of fits.
 """
 

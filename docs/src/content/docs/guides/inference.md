@@ -48,6 +48,6 @@ ranges. The solver stays the reference.
 
 `opencr.tables.effective_rate_table(model, conditions, outputs, temperatures, densities)`
 tabulates quantities on a $T_e \times n_e$ grid; an `EffectiveRateTable` interpolates in
-$\ln q$ against $\ln T_e$, $\ln n_e$ and writes netCDF. wellbalanced (`wellbalanced.cr`: the
-hydrogen driver and the deuterium neutralizer), beamtracer (through wellbalanced) and
+$\ln q$ against $\ln T_e$, $\ln n_e$ and writes netCDF. carafe (`carafe.cr`: the
+hydrogen driver and the deuterium neutralizer), beamtracer (through carafe) and
 freeofcharge (`ElectronCRStopping`) take their rates from these tables.
